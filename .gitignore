@@ -1,0 +1,15 @@
+# Ignora a pasta node_modules
+node_modules/
+
+# Ignora logs
+logs
+*.log
+npm-debug.log*
+
+# Ignora arquivos de ambiente
+.env
+
+# Ignora arquivos de cache do editor
+.DS_Store
+.vscode/
+.idea/
