@@ -120,30 +120,30 @@ class Cliente {
     }
 
     static async deletarSellerByMarketplace(id, id_cliente) {
-    // 1. Busca o seller para pegar o marketplaceId
-    const sellerRef = db.collection('sellers').doc(id);
-    const sellerSnap = await sellerRef.get();
+        // 1. Busca o seller para pegar o marketplaceId
+        const sellerRef = db.collection('sellers').doc(id);
+        const sellerSnap = await sellerRef.get();
 
-    if (!sellerSnap.exists) {
-        throw new Error('Seller não encontrado');
+        if (!sellerSnap.exists) {
+            throw new Error('Seller não encontrado');
+        }
+
+        const { marketplaceId } = sellerSnap.data();
+
+        // 2. Decrementa quantidade_vendedores do marketplace
+        const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
+        await marketplaceRef.update({
+            quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
+        });
+
+        // 3. Exclui o seller
+        await sellerRef.delete();
+
+        // 4. Exclui o cliente
+        await db.collection('clientes').doc(id_cliente).delete();
+
+        return true;
     }
-
-    const { marketplaceId } = sellerSnap.data();
-
-    // 2. Decrementa quantidade_vendedores do marketplace
-    const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
-    await marketplaceRef.update({
-        quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
-    });
-
-    // 3. Exclui o seller
-    await sellerRef.delete();
-
-    // 4. Exclui o cliente
-    await db.collection('clientes').doc(id_cliente).delete();
-
-    return true;
-}
 
 
     static async buscarPorId(id) {
@@ -183,6 +183,39 @@ class Cliente {
             ...cliente,
         };
     }
+
+    static async atualizarSeller(idSeller, dados) {
+        // Atualiza o cliente (exceto marketplace)
+        const { marketplace, ...dadosCliente } = dados;
+        const doc = await db.collection('sellers').doc(idSeller).get();
+
+        // Busca o cliente atualizado para pegar o marketplaceId
+        const { cliente_id } = doc.data();
+
+        await db.collection('clientes').doc(cliente_id).update(dadosCliente);
+
+        // Busca o cliente atualizado para pegar o marketplaceId
+        const clienteDoc = await db.collection('clientes').doc(cliente_id).get();
+        const cliente = { id: clienteDoc.id, ...clienteDoc.data() };
+
+        // let marketplaceAtualizado = null;
+
+        // // Se houver marketplaceId e dados de marketplace para atualizar
+        // if (cliente.marketplaceId && marketplace) {
+        //     await db.collection('marketplaces').doc(cliente.marketplaceId).update(marketplace);
+        //     // Busca marketplace atualizado
+        //     const marketplaceDoc = await db.collection('marketplaces').doc(cliente.marketplaceId).get();
+        //     if (marketplaceDoc.exists) {
+        //         marketplaceAtualizado = { id: marketplaceDoc.id, ...marketplaceDoc.data() };
+        //     }
+        // }
+
+        // Retorna os dados atualizados
+        return {
+            ...cliente,
+        };
+    }
+
 
     static async deletar(id) {
         // 1. Exclui o cliente

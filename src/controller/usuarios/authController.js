@@ -172,6 +172,41 @@ const updateMarketplace = async (req, res) => {
     }
 };
 
+const updateSeller = async (req, res) => {
+    try {
+        const { idSeller } = req.params; // pega o id da URL, ex: /clientes/:id
+        const { nome, email, password, marketplaceId } = req.body;
+        let hashedPassword = null;
+        if (password) {
+            const saltRounds = 10;
+            hashedPassword = await bcrypt.hash(password, saltRounds);
+        }
+        let dados = {};
+        if (hashedPassword) {
+            dados = {
+                nome,
+                email,
+                password: hashedPassword,
+                marketplaceId
+            };
+        } else {
+            dados = {
+                nome,
+                email,
+                marketplaceId
+            };
+        }
+        // Monta os dados, incluindo marketplace apenas se existir
+
+
+        const resultado = await Cliente.atualizarSeller(idSeller, dados); // chama a função de atualizar
+
+        return res.status(200).json({ dados: resultado });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
 const listarMarketPlace = async (req, res) => {
     try {
         const dados = await Cliente.listarMarketplacesComClientes();
@@ -179,7 +214,7 @@ const listarMarketPlace = async (req, res) => {
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
-};
+}
 
 // sellers ================
 const criarSeller = async (req, res) => {
@@ -241,4 +276,4 @@ const listarSellers = async (req, res) => {
     }
 };
 
-module.exports = { authRegister, authLogin, buscarPorId, destroySellerByMarketplace, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };
+module.exports = { authRegister, authLogin, buscarPorId, updateSeller, destroySellerByMarketplace, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };
