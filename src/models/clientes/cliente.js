@@ -1,6 +1,6 @@
 // models/Cliente.js
 const { db } = require('../../../config/index');
-
+const { FieldValue } = require('firebase-admin').firestore;
 class Cliente {
     static async buscarPorEmail(email) {
         const query = await db.collection('clientes').where('email', '==', email).get();
@@ -9,35 +9,28 @@ class Cliente {
         return { id: doc.id, ...doc.data() };
     }
 
-    static async criar({ nome, email, password, cargo, marketplaceId }) {
+    static async criar({ nome, email, password, cargo, marketplaceId, status }) {
         try {
-            // 1. Cria o cliente
+            // 1. Cria o cliente com ID aleatório do Firestore
             const clienteRef = await db.collection('clientes').add({
                 nome,
                 email,
                 password,
                 cargo,
-                marketplaceId
+                marketplaceId,
+                status
             });
             const clienteId = clienteRef.id;
 
-            // 2. Cria o marketplace relacionado
+            // 2. Cria o marketplace relacionado, também com ID aleatório
             const marketplaceData = {
-                quantidade_vendedores: 1,    // Novo marketplace começa com 1 vendedor
+                quantidade_vendedores: 0,    // Novo marketplace começa com 1 vendedor
                 cliente_id: clienteId        // Relaciona com o cliente criado
             };
 
-            // Se quiser usar o marketplaceId fornecido, use como docId, senão deixe o Firestore gerar
-            let marketplaceRef;
-            if (marketplaceId) {
-                marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
-                await marketplaceRef.set({ ...marketplaceData, id: marketplaceId });
-            } else {
-                marketplaceRef = await db.collection('marketplaces').add(marketplaceData);
-                await marketplaceRef.update({ id: marketplaceRef.id });
-            }
+            await db.collection('marketplaces').add(marketplaceData);
 
-            return clienteId;
+            return clienteRef;
         } catch (error) {
             console.error('Erro ao criar cliente:', error);
             throw new Error('Erro ao criar cliente no banco de dados.');
@@ -66,6 +59,93 @@ class Cliente {
         return clientes;
     }
 
+    static async buscarSellersPorMarketplace(marketplaceId) {
+        const sellersRef = db.collection('sellers');
+        const querySnapshot = await sellersRef.where('marketplaceId', '==', marketplaceId).get();
+
+        // Mapeia os resultados para um array de objetos com id e dados
+        const sellers = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        // Busca os dados dos clientes relacionados
+        const clientesPromises = sellers.map(async (seller) => {
+            console.log(seller)
+            const clienteSnap = await db.collection('clientes').doc(seller.cliente_id).get();
+            console.log(clienteSnap.data());
+
+            return {
+                ...seller,
+                cliente: clienteSnap.exists ? { id: clienteSnap.id, ...clienteSnap.data() } : null
+            };
+        });
+
+        // Aguarda todas as buscas paralelamente
+        const sellersComClientes = await Promise.all(clientesPromises);
+
+        return sellersComClientes;
+    }
+
+    static async listarMarketplacesComClientes() {
+        // 1. Busca todos os marketplaces
+        const snapshot = await db.collection('marketplaces').get();
+
+        // 2. Para cada marketplace, busca o cliente relacionado
+        const marketplaces = await Promise.all(snapshot.docs.map(async doc => {
+            const marketplace = { id: doc.id, ...doc.data() };
+
+            let cliente = null;
+            if (marketplace.cliente_id) {
+                const clienteDoc = await db.collection('clientes').doc(marketplace.cliente_id).get();
+                if (clienteDoc.exists) {
+                    cliente = { id: clienteDoc.id, ...clienteDoc.data() };
+                }
+            }
+
+            return { ...marketplace, cliente };
+        }));
+
+        return marketplaces;
+    }
+
+    static async deletarSellerByMarketplace(id, id_cliente) {
+        // 1. Exclui o cliente
+        await db.collection('sellers').doc(id).delete();
+
+        // 2. Exclui o cliente cujo ID é id_cliente
+        await db.collection('clientes').doc(id_cliente).delete();
+
+        return true;
+    }
+
+    static async deletarSellerByMarketplace(id, id_cliente) {
+    // 1. Busca o seller para pegar o marketplaceId
+    const sellerRef = db.collection('sellers').doc(id);
+    const sellerSnap = await sellerRef.get();
+
+    if (!sellerSnap.exists) {
+        throw new Error('Seller não encontrado');
+    }
+
+    const { marketplaceId } = sellerSnap.data();
+
+    // 2. Decrementa quantidade_vendedores do marketplace
+    const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
+    await marketplaceRef.update({
+        quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
+    });
+
+    // 3. Exclui o seller
+    await sellerRef.delete();
+
+    // 4. Exclui o cliente
+    await db.collection('clientes').doc(id_cliente).delete();
+
+    return true;
+}
+
+
     static async buscarPorId(id) {
         try {
             const doc = await db.collection('clientes').doc(id).get();
@@ -86,22 +166,21 @@ class Cliente {
         const clienteDoc = await db.collection('clientes').doc(id).get();
         const cliente = { id: clienteDoc.id, ...clienteDoc.data() };
 
-        let marketplaceAtualizado = null;
+        // let marketplaceAtualizado = null;
 
-        // Se houver marketplaceId e dados de marketplace para atualizar
-        if (cliente.marketplaceId && marketplace) {
-            await db.collection('marketplaces').doc(cliente.marketplaceId).update(marketplace);
-            // Busca marketplace atualizado
-            const marketplaceDoc = await db.collection('marketplaces').doc(cliente.marketplaceId).get();
-            if (marketplaceDoc.exists) {
-                marketplaceAtualizado = { id: marketplaceDoc.id, ...marketplaceDoc.data() };
-            }
-        }
+        // // Se houver marketplaceId e dados de marketplace para atualizar
+        // if (cliente.marketplaceId && marketplace) {
+        //     await db.collection('marketplaces').doc(cliente.marketplaceId).update(marketplace);
+        //     // Busca marketplace atualizado
+        //     const marketplaceDoc = await db.collection('marketplaces').doc(cliente.marketplaceId).get();
+        //     if (marketplaceDoc.exists) {
+        //         marketplaceAtualizado = { id: marketplaceDoc.id, ...marketplaceDoc.data() };
+        //     }
+        // }
 
         // Retorna os dados atualizados
         return {
             ...cliente,
-            marketplace: marketplaceAtualizado
         };
     }
 
@@ -137,7 +216,8 @@ class Cliente {
         });
 
         // 3. Criação do seller, usando o mesmo ID do cliente
-        const sellerRef = await db.collection('sellers').add({
+        const sellerRef = db.collection('sellers').doc();
+        await sellerRef.set({
             id_seller,
             cliente_id: clienteRef.id, // Usa o ID do cliente criado
             marketplaceId
@@ -146,6 +226,13 @@ class Cliente {
 
         // 5. Busca os dados do seller criado
         const sellerDoc = await sellerRef.get();
+
+        // 1. Atualiza quantidade_vendedores do marketplace
+        const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
+
+        await marketplaceRef.update({
+            quantidade_vendedores: FieldValue.increment(1)
+        });
 
         // 6. Retorna os dados e o token
         return {
@@ -161,15 +248,14 @@ class Cliente {
         // 2. Para cada seller, busca o cliente relacionado
         const sellers = await Promise.all(snapshot.docs.map(async doc => {
             const seller = { id: doc.id, ...doc.data() };
-
             let cliente = null;
             if (seller.cliente_id) {
                 const clienteDoc = await db.collection('clientes').doc(seller.cliente_id).get();
+
                 if (clienteDoc.exists) {
                     cliente = { id: clienteDoc.id, ...clienteDoc.data() };
                 }
             }
-
             return { ...seller, cliente };
         }));
 
@@ -186,7 +272,7 @@ class Cliente {
         }
     }
     static async buscarPorEmailSeller(email) {
-        const query = await db.collection('sellers').where('email', '==', email).get();
+        const query = await db.collection('clientes').where('email', '==', email).get();
         if (query.empty) return null;
         const doc = query.docs[0];
         return { id: doc.id, ...doc.data() };

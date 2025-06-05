@@ -15,7 +15,7 @@ const authVerify = (req, res, next) => {
         // Adiciona os dados do usuário na requisição
         req.user = decoded;
         // Verifica se existe um id no params e se é diferente do id do token
-        if (req.params.id && req.params.id !== decoded.id) {
+        if (req.params.id && req.params.id !== decoded.id && req.user.cargo !== "admin") {
             return res.status(403).json({ error: 'Acesso negado: ID não corresponde ao usuário autenticado.' });
         }
         next();

@@ -6,7 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'segredo-super-seguro';
 
 const authRegister = async (req, res) => {
     try {
-        const { nome, email, password, confirmpassword, cargo, marketplaceId } = req.body;
+        const { nome, email, password, confirmpassword, marketplaceId, status } = req.body;
         // Verifica se password e confirmpassword são iguais
         if (password !== confirmpassword) {
             return res.status(400).json({ error: 'As senhas não conferem.' });
@@ -18,8 +18,9 @@ const authRegister = async (req, res) => {
         }
         // Hash da senha
         const hashedPassword = await bcrypt.hash(password, 10);
+        const cargo = "marketplace";
         // Cria usuário
-        const id = await Cliente.criar({ nome, email, password: hashedPassword, cargo, marketplaceId });
+        const id = await Cliente.criar({ nome, email, password: hashedPassword, cargo, marketplaceId, status });
         // Gera token JWT com o id do usuário
         const token = jwt.sign(
             { id: id.id, email: id.email, cargo: id.cargo },
@@ -84,23 +85,86 @@ const deletarPorId = async (req, res) => {
     }
 };
 
+const listSellerByMarketplace = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const dados = await Cliente.buscarSellersPorMarketplace(id);
+
+        return res.status(201).json({ dados: dados });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+}
+
+const destroySellerByMarketplace = async (req, res) => {
+    try {
+        const { id, id_cliente } = req.params;
+        const dados = await Cliente.deletarSellerByMarketplace(id, id_cliente);
+
+        return res.status(201).json({ message: "Seller deletado com sucesso", dados: dados });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+}
+
+const registerSellerToMarktplace = async (req, res) => {
+    try {
+        try {
+            const { nome, email, password, confirmpassword, marketplaceId, id_seller } = req.body;
+            // Verifica se password e confirmpassword são iguais
+            if (password !== confirmpassword) {
+                return res.status(400).json({ error: 'As senhas não conferem.' });
+            }
+            // Verifica se já existe usuário
+            const userExists = await Cliente.buscarPorEmailSeller(email);
+            if (userExists) {
+                return res.status(409).json({ error: 'E-mail já cadastrado a outro Seller.' });
+            }
+            // Hash da senha
+            const hashedPassword = await bcrypt.hash(password, 10);
+            // Cria usuário
+            const id = await Cliente.criarSeller({ id_seller, nome, email, password: hashedPassword, marketplaceId });
+
+            return res.status(201).json({ id, message: 'Usuário cadastrado com sucesso.', data: id });
+        } catch (error) {
+            console.log(error)
+            return res.status(500).json({ error: error.message });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
 const updateMarketplace = async (req, res) => {
     try {
-        const { id } = req.params; // pega o id da URL, ex: /clientes/:id
-        const { nome, email, marketplace } = req.body;
-
+        const { idCliente } = req.params; // pega o id da URL, ex: /clientes/:id
+        const { nome, email, password, status, marketplaceId } = req.body;
+        let hashedPassword = null;
+        if (password) {
+            const saltRounds = 10;
+            hashedPassword = await bcrypt.hash(password, saltRounds);
+        }
+        let dados = {};
+        if (hashedPassword) {
+            dados = {
+                nome,
+                email,
+                status,
+                password: hashedPassword,
+                marketplaceId
+            };
+        } else {
+            dados = {
+                nome,
+                email,
+                status,
+                marketplaceId
+            };
+        }
         // Monta os dados, incluindo marketplace apenas se existir
-        const dados = {
-            nome,
-            email,
-            ...(marketplace && {
-                marketplace: {
-                    quantidade_vendedores: marketplace.quantidade_vendedores
-                }
-            })
-        };
 
-        const resultado = await Cliente.atualizar(id, dados); // chama a função de atualizar
+
+        const resultado = await Cliente.atualizar(idCliente, dados); // chama a função de atualizar
 
         return res.status(200).json({ dados: resultado });
     } catch (error) {
@@ -110,7 +174,7 @@ const updateMarketplace = async (req, res) => {
 
 const listarMarketPlace = async (req, res) => {
     try {
-        const dados = await Cliente.listarTodos();
+        const dados = await Cliente.listarMarketplacesComClientes();
         return res.status(201).json({ dados: dados });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -177,4 +241,4 @@ const listarSellers = async (req, res) => {
     }
 };
 
-module.exports = { authRegister, authLogin, buscarPorId, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller };
+module.exports = { authRegister, authLogin, buscarPorId, destroySellerByMarketplace, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };
