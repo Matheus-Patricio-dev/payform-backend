@@ -106,6 +106,16 @@ const destroySellerByMarketplace = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 }
+const destroySellerByMarketPlaceUserMKT = async (req, res) => {
+    try {
+        const { id, id_cliente } = req.params;
+        const dados = await Cliente.destroySellerByMarketPlaceUserMKT(id, id_cliente);
+
+        return res.status(201).json({ message: "Seller deletado com sucesso", dados: dados });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+}
 
 const registerSellerToMarktplace = async (req, res) => {
     try {
@@ -276,4 +286,4 @@ const listarSellers = async (req, res) => {
     }
 };
 
-module.exports = { authRegister, authLogin, buscarPorId, updateSeller, destroySellerByMarketplace, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };
+module.exports = { authRegister, authLogin, buscarPorId, updateSeller, destroySellerByMarketplace, destroySellerByMarketPlaceUserMKT, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };

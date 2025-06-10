@@ -1,5 +1,5 @@
 const express = require('express');
-const { authRegister, authLogin, buscarPorId, updateSeller, registerSellerToMarktplace, destroySellerByMarketplace, listSellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller } = require('../../controller/usuarios/authController');
+const { authRegister, authLogin, buscarPorId, updateSeller, registerSellerToMarktplace, destroySellerByMarketPlaceUserMKT, destroySellerByMarketplace, listSellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller } = require('../../controller/usuarios/authController');
 const { authVerify, isAdmin, isMarketplace } = require('../../middleware/authVerify');
 const router = express.Router();
 
@@ -14,6 +14,7 @@ router.get('/marketplaces', authVerify, isAdmin, listarMarketPlace);
 router.put('/marketplace/:idCliente', authVerify, isAdmin, updateMarketplace);
 router.delete('/marketplace/:id', authVerify, isAdmin, deletarPorId);
 router.delete('/marketplace-seller/:id/:id_cliente', authVerify, isAdmin, destroySellerByMarketplace);
+router.delete('/marketplace-seller-remove/:id/:id_cliente', authVerify, isMarketplace, destroySellerByMarketPlaceUserMKT); // MKT deleta Seller
 router.get('/sellers-list', authVerify, isAdmin, listarSellers);
 
 // seller

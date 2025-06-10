@@ -119,6 +119,33 @@ class Cliente {
         return true;
     }
 
+
+    static async destroySellerByMarketPlaceUserMKT(id, id_cliente) {
+        // 1. Busca o seller para pegar o marketplaceId
+        const sellerRef = db.collection('sellers').doc(id);
+        const sellerSnap = await sellerRef.get();
+
+        if (!sellerSnap.exists) {
+            throw new Error('Seller não encontrado');
+        }
+
+        const { marketplaceId } = sellerSnap.data();
+
+        // 2. Decrementa quantidade_vendedores do marketplace
+        const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
+        await marketplaceRef.update({
+            quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
+        });
+
+        // 3. Exclui o seller
+        await sellerRef.delete();
+
+        // 4. Exclui o cliente
+        await db.collection('clientes').doc(id_cliente).delete();
+
+        return true;
+    }
+
     static async deletarSellerByMarketplace(id, id_cliente) {
         // 1. Busca o seller para pegar o marketplaceId
         const sellerRef = db.collection('sellers').doc(id);
