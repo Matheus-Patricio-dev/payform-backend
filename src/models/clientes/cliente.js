@@ -133,9 +133,11 @@ class Cliente {
 
         // 2. Decrementa quantidade_vendedores do marketplace
         const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
-        await marketplaceRef.update({
-            quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
-        });
+        if (marketplaceRef) {
+            await marketplaceRef.update({
+                quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
+            });
+        }
 
         // 3. Exclui o seller
         await sellerRef.delete();
@@ -159,10 +161,11 @@ class Cliente {
 
         // 2. Decrementa quantidade_vendedores do marketplace
         const marketplaceRef = db.collection('marketplaces').doc(marketplaceId);
-        await marketplaceRef.update({
-            quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
-        });
-
+        if (marketplaceRef) {
+            await marketplaceRef.update({
+                quantidade_vendedores: require('firebase-admin').firestore.FieldValue.increment(-1)
+            });
+        }
         // 3. Exclui o seller
         await sellerRef.delete();
 
