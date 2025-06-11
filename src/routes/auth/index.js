@@ -11,7 +11,7 @@ router.post('/register-seller-to-marketplace', authVerify, isAdmin, registerSell
 router.get('/marketplace/:id', authVerify, buscarPorId);
 router.get('/marketplace-list-seller/:id', authVerify, listSellerByMarketplace);
 router.get('/marketplaces', authVerify, isAdmin, listarMarketPlace);
-router.put('/marketplace/:idCliente', authVerify, isAdmin, updateMarketplace);
+router.put('/marketplace/:idCliente', authVerify, updateMarketplace);
 router.delete('/marketplace/:id', authVerify, isAdmin, deletarPorId);
 router.delete('/marketplace-seller/:id/:id_cliente', authVerify, isAdmin, destroySellerByMarketplace);
 router.delete('/marketplace-seller-remove/:id/:id_cliente', authVerify, isMarketplace, destroySellerByMarketPlaceUserMKT); // MKT deleta Seller
@@ -21,6 +21,6 @@ router.get('/sellers-list', authVerify, isAdmin, listarSellers);
 router.post('/register-seller', authVerify, isMarketplace, criarSeller);
 router.get('/seller/:id', authVerify, buscarPorIdSeller);
 router.get('/sellers', authVerify, isMarketplace, listarSellers);
-router.put('/seller/:idSeller', authVerify, isAdmin, updateSeller);
+router.put('/seller/:idSeller', authVerify, updateSeller);
 
 module.exports = router;
