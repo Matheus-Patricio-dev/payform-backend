@@ -53,7 +53,7 @@ const authLogin = async (req, res) => {
             JWT_SECRET,
             { expiresIn: '1d' }
         );
-        return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId } });
+        return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo} });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
