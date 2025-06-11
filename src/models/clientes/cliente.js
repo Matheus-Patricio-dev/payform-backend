@@ -23,7 +23,7 @@ class Cliente {
         // 3. Retorna ambos os dados
         return {
             ...clienteData,
-            marketplace: marketplaceData
+            dataInfo: marketplaceData
         };
     }
 
