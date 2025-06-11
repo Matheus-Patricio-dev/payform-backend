@@ -3,10 +3,28 @@ const { db } = require('../../../config/index');
 const { FieldValue } = require('firebase-admin').firestore;
 class Cliente {
     static async buscarPorEmail(email) {
+        // 1. Busca o cliente
         const query = await db.collection('clientes').where('email', '==', email).get();
         if (query.empty) return null;
         const doc = query.docs[0];
-        return { id: doc.id, ...doc.data() };
+        const clienteData = { id: doc.id, ...doc.data() };
+
+        // 2. Busca o marketplace relacionado ao cliente
+        const marketplaceQuery = await db.collection('marketplaces')
+            .where('cliente_id', '==', clienteData.id)
+            .get();
+
+        let marketplaceData = null;
+        if (!marketplaceQuery.empty) {
+            const marketplaceDoc = marketplaceQuery.docs[0];
+            marketplaceData = { id: marketplaceDoc.id, ...marketplaceDoc.data() };
+        }
+
+        // 3. Retorna ambos os dados
+        return {
+            ...clienteData,
+            marketplace: marketplaceData
+        };
     }
 
     static async criar({ nome, email, password, cargo, marketplaceId, status }) {
