@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Cliente = require('../../models/clientes/cliente');
+const { db } = require('../../../config/index');
+const { consultarSaldoSeller } = require('../../helper/zoop');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo-super-seguro';
 
@@ -53,7 +55,20 @@ const authLogin = async (req, res) => {
             JWT_SECRET,
             { expiresIn: '1d' }
         );
-        return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo} });
+
+        if (user?.cargo === "admin") {
+            const dadosMKT = await Cliente.listarMarketplacesComClientes();
+
+            const dadosSL = await Cliente.listarTodosSellersComCliente();
+
+            const painel = {
+                marketplaces: dadosMKT,
+                sellers: dadosSL
+            }
+            return res.json({ token, painel, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
+        } else {
+            return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
+        }
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
@@ -279,6 +294,7 @@ const buscarPorIdSeller = async (req, res) => {
 
 const listarSellers = async (req, res) => {
     try {
+
         const dados = await Cliente.listarTodosSellersComCliente();
         return res.status(201).json({ dados: dados });
     } catch (error) {
@@ -286,4 +302,68 @@ const listarSellers = async (req, res) => {
     }
 };
 
-module.exports = { authRegister, authLogin, buscarPorId, updateSeller, destroySellerByMarketplace, destroySellerByMarketPlaceUserMKT, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };
+const buscarDadosSellerGeral = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const dados = await Cliente.getClientById(id);
+        if (dados?.cliente?.id) {
+            const sellerDados = await Cliente.buscarRelacionamentoCompletoPorClienteId(dados?.cliente?.id);
+            const puxarSaldo = await consultarSaldoSeller(sellerDados?.clienteMarketplace?.marketplaceId, sellerDados?.seller?.id_seller);
+            console.log(puxarSaldo?.items, 'saldo')
+            const saldo = puxarSaldo?.items;
+            if (saldo) {
+                // 4. Busca documento atual do cliente no Firestore
+                const clienteDocRef = db.collection('clientes').doc(dados.cliente.id);
+                const clienteDoc = await clienteDocRef.get();
+
+                if (!clienteDoc.exists) {
+                    // Cliente não encontrado, pode retornar erro ou criar, conforme regra do seu sistema
+                    return res.status(404).json({ error: 'Cliente não encontrado.' });
+                }
+
+                const clienteAtual = clienteDoc.data();
+
+                // 5. Prepara objeto para atualização somente se necessário
+                const camposParaAtualizar = {};
+
+                // Função auxiliar para comparar e preparar atualização
+                function verificarCampo(nomeCampo, valorNovo) {
+                    if (
+                        valorNovo !== undefined &&
+                        (
+                            clienteAtual[nomeCampo] === undefined ||
+                            clienteAtual[nomeCampo] !== valorNovo
+                        )
+                    ) {
+                        camposParaAtualizar[nomeCampo] = valorNovo;
+                    }
+                }
+
+                verificarCampo('current_balance', saldo.current_balance);
+                verificarCampo('current_blocked_balance', saldo.current_blocked_balance);
+                verificarCampo('account_balance', saldo.account_balance);
+
+                // 6. Atualiza apenas se houver campos para atualizar
+                if (Object.keys(camposParaAtualizar).length > 0) {
+                    await clienteDocRef.update(camposParaAtualizar);
+                    console.log('Campos atualizados:', camposParaAtualizar);
+                } else {
+                    console.log('Nenhuma atualização necessária.');
+                }
+            } else {
+                // Se não vier saldo, zera ou remove os campos (conforme sua regra)
+                const clienteDocRef = db.collection('clientes').doc(dados.cliente.id);
+                await clienteDocRef.update({
+                    current_balance: null,
+                    current_blocked_balance: null,
+                    account_balance: null
+                });
+            }
+        }
+        return res.status(201).json({ dados: dados });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { authRegister, authLogin, buscarDadosSellerGeral, buscarPorId, updateSeller, destroySellerByMarketplace, destroySellerByMarketPlaceUserMKT, listSellerByMarketplace, destroySellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller, registerSellerToMarktplace };

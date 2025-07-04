@@ -1,5 +1,5 @@
 const express = require('express');
-const { authRegister, authLogin, buscarPorId, updateSeller, registerSellerToMarktplace, destroySellerByMarketPlaceUserMKT, destroySellerByMarketplace, listSellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller } = require('../../controller/usuarios/authController');
+const { authRegister, authLogin, buscarPorId, buscarDadosSellerGeral, updateSeller, registerSellerToMarktplace, destroySellerByMarketPlaceUserMKT, destroySellerByMarketplace, listSellerByMarketplace, deletarPorId, listarMarketPlace, updateMarketplace, criarSeller, listarSellers, buscarPorIdSeller } = require('../../controller/usuarios/authController');
 const { authVerify, isAdmin, isMarketplace } = require('../../middleware/authVerify');
 const router = express.Router();
 
@@ -20,6 +20,7 @@ router.get('/sellers-list', authVerify, isAdmin, listarSellers);
 // seller
 router.post('/register-seller', authVerify, isMarketplace, criarSeller);
 router.get('/seller/:id', authVerify, buscarPorIdSeller);
+router.get('/seller-dash/:id', authVerify, buscarDadosSellerGeral);
 router.get('/sellers', authVerify, isMarketplace, listarSellers);
 router.put('/seller/:idSeller', authVerify, updateSeller);
 

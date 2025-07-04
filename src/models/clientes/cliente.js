@@ -352,11 +352,180 @@ class Cliente {
             throw new Error('Erro ao buscar cliente no banco de dados.');
         }
     }
+    /**
+     * Busca o relacionamento completo de um cliente a partir do seu ID.
+     * Retorna o clienteSeller, o seller relacionado e o clienteMarketplace (caso existam).
+     * 
+     * @param {string} id - ID do clienteSeller a ser buscado.
+     * @returns {Promise<{clienteSeller: object|null, seller: object|null, clienteMarketplace: object|null}>}
+     * @throws {Error} Caso ocorra algum erro durante a busca.
+     */
+    static async buscarRelacionamentoCompletoPorClienteId(id) {
+        // Validação do parâmetro de entrada
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            throw new Error('ID do clienteSeller inválido.');
+        }
+
+        try {
+            // 1. Busca o clienteSeller pelo ID do documento
+            const clienteSellerDoc = await db.collection('clientes').doc(id).get();
+
+            if (!clienteSellerDoc.exists) {
+                // Cliente não encontrado
+                return { clienteSeller: null, seller: null, clienteMarketplace: null };
+            }
+
+            const clienteSeller = { id: clienteSellerDoc.id, ...clienteSellerDoc.data() };
+
+            // 2. Busca o seller relacionado ao clienteSeller
+            const sellerSnapshot = await db.collection('sellers')
+                .where('cliente_id', '==', clienteSeller.id)
+                .limit(1)
+                .get();
+
+            if (sellerSnapshot.empty) {
+                // Seller não encontrado
+                return { clienteSeller, seller: null, clienteMarketplace: null };
+            }
+
+            const sellerDoc = sellerSnapshot.docs[0];
+            const seller = { id: sellerDoc.id, ...sellerDoc.data() };
+
+            // 3. Busca o marketplace relacionado ao seller
+            if (!seller.marketplaceId || typeof seller.marketplaceId !== 'string' || seller.marketplaceId.trim() === '') {
+                // Marketplace_id ausente ou inválido
+                return { clienteSeller, seller, clienteMarketplace: null };
+            }
+
+            const marketplaceSnapshot = await db.collection('marketplaces').doc(seller.marketplaceId).get();
+
+            if (!marketplaceSnapshot.exists) {
+                // Marketplace não encontrado
+                return { clienteSeller, seller, clienteMarketplace: null };
+            }
+
+            const marketplace = { id: marketplaceSnapshot.id, ...marketplaceSnapshot.data() };
+
+            // 4. Busca o clienteMarketplace pelo cliente_id do marketplace
+            let clienteMarketplace = null;
+            if (marketplace.cliente_id && typeof marketplace.cliente_id === 'string' && marketplace.cliente_id.trim() !== '') {
+                const clienteMarketplaceDoc = await db.collection('clientes').doc(marketplace.cliente_id).get();
+                if (clienteMarketplaceDoc.exists) {
+                    clienteMarketplace = { id: clienteMarketplaceDoc.id, ...clienteMarketplaceDoc.data() };
+                }
+            }
+
+            // 5. Retorna todos os dados encontrados
+            return {
+                clienteSeller,
+                seller,
+                clienteMarketplace
+            };
+
+        } catch (error) {
+            // Lança erro customizado para facilitar o rastreamento
+            throw new Error('Erro ao buscar relacionamento completo: ' + error.message);
+        }
+    }
+
+    static async buscarPorIdSellerPayment(id) {
+        try {
+            const sellersRef = db.collection('sellers');
+            const querySnapshot = await sellersRef.where('cliente_id', '==', id).limit(1).get();
+
+            if (querySnapshot.empty) {
+                return null; // Nenhum seller encontrado
+            }
+
+            const sellerDoc = querySnapshot.docs[0];
+            return { id: sellerDoc.id, ...sellerDoc.data() };
+        } catch (error) {
+            throw new Error('Erro ao buscar seller: ' + error.message);
+        }
+    }
+    static async buscarPorIdMKTPayment(id) {
+        try {
+            // 1. Busca o marketplace pelo ID informado
+            const marketplaceDoc = await db.collection('marketplaces').doc(id).get();
+
+            if (!marketplaceDoc.exists) {
+                return null; // Nenhum marketplace encontrado
+            }
+
+            // 2. Pega o cliente_id do marketplace
+            const marketplaceData = marketplaceDoc.data();
+            const clienteId = marketplaceData.cliente_id;
+
+            if (!clienteId) {
+                return null; // Marketplace não possui cliente_id
+            }
+
+            // 3. Busca o cliente pelo cliente_id
+            const clienteDoc = await db.collection('clientes').doc(clienteId).get();
+
+            if (!clienteDoc.exists) {
+                return null; // Nenhum cliente encontrado
+            }
+
+            // 4. Retorna os dados do cliente
+            return { id: clienteDoc.id, ...clienteDoc.data() };
+
+        } catch (error) {
+            throw new Error('Erro ao buscar cliente pelo marketplace: ' + error.message);
+        }
+    }
     static async buscarPorEmailSeller(email) {
         const query = await db.collection('clientes').where('email', '==', email).get();
         if (query.empty) return null;
         const doc = query.docs[0];
         return { id: doc.id, ...doc.data() };
+    }
+
+    static async getClientById(id) {
+        const clientRef = db.collection('clientes').doc(id);
+
+        // 1. Buscar o cliente
+        const clientDoc = await clientRef.get();
+
+        if (!clientDoc.exists) {
+            return { error: 'Cliente não encontrado.' };
+        }
+
+        const clientData = { id: clientDoc.id, ...clientDoc.data() };
+
+        // 2. Buscar pagamentos associados ao cliente
+        const paymentsRef = db.collection('pagamentos');
+        const paymentsSnapshot = await paymentsRef.where('seller_id', '==', id).get();
+
+        const payments = await Promise.all(paymentsSnapshot.docs.map(async (paymentDoc) => {
+            const paymentData = paymentDoc.data();
+
+            // 3. Buscar transações associadas ao pagamento
+            const transactionsRef = db.collection('transacoes');
+            const transactionsSnapshot = await transactionsRef.where('pagamento_id', '==', paymentDoc.id).get();
+
+            const transactions = transactionsSnapshot.docs.map(transDoc => {
+                const transacaoData = transDoc.data();
+                return {
+                    ...transacaoData,
+                    cliente_nome: clientData.nome, // Adiciona o nome do cliente
+                    metodo_pagamento: paymentData.paymentMethods.join(', ') // Adiciona o método de pagamento
+                };
+            });
+
+            return {
+                ...paymentData,
+                id: paymentDoc.id,
+                transacoes: transactions // Transações associadas a este pagamento
+            };
+        }));
+
+        // 4. Retornar os dados separados
+        return {
+            cliente: clientData,
+            pagamentos: payments.map(({ transacoes, ...rest }) => rest), // Retorna pagamentos sem transações
+            transacoes: payments.flatMap(payment => payment.transacoes) // Transações de todos os pagamentos
+        };
     }
 
     static async testConnection() {

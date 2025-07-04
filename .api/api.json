@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "apis": [
+    {
+      "identifier": "zoop",
+      "source": "@zoop/v2.5#vz2gxtrhlm97bf4bn",
+      "integrity": "sha512-dx/u7n16XgAk4M9qyBDii0spRjAJ1qNbZK8eXBK1OZ7iUcGIj4iikUUi2zrNqX0udSTvPeBPuVE20OyEcW6Big==",
+      "installerVersion": "6.1.3"
+    }
+  ]
+}
