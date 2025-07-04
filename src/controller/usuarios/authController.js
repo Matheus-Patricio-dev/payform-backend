@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'segredo-super-seguro';
 
 const authRegister = async (req, res) => {
     try {
-        const { nome, email, password, confirmpassword, marketplaceId, status } = req.body;
+        const { nome, email, password, confirmpassword, marketplaceId, status, id_juros, habilitar_parcelas } = req.body;
         // Verifica se password e confirmpassword são iguais
         if (password !== confirmpassword) {
             return res.status(400).json({ error: 'As senhas não conferem.' });
@@ -22,7 +22,7 @@ const authRegister = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const cargo = "marketplace";
         // Cria usuário
-        const id = await Cliente.criar({ nome, email, password: hashedPassword, cargo, marketplaceId, status });
+        const id = await Cliente.criar({ nome, email, password: hashedPassword, cargo, marketplaceId, status, id_juros, habilitar_parcelas });
         // Gera token JWT com o id do usuário
         const token = jwt.sign(
             { id: id.id, email: id.email, cargo: id.cargo },
@@ -67,7 +67,7 @@ const authLogin = async (req, res) => {
             }
             return res.json({ token, painel, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
         } else {
-            return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
+            return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, taxa_juros: user?.taxa_juros, id_juros: user.id_juros, habilitar_parcelas: user.habilitar_parcelas, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
         }
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -244,7 +244,7 @@ const listarMarketPlace = async (req, res) => {
 // sellers ================
 const criarSeller = async (req, res) => {
     try {
-        const { id_seller, nome, email, password, confirmpassword, marketplaceId } = req.body;
+        const { id_seller, nome, email, password, confirmpassword, marketplaceId, id_juros, habilitar_parcelas } = req.body;
 
         if (password !== confirmpassword) {
             throw new Error('As senhas não conferem.');
@@ -260,7 +260,8 @@ const criarSeller = async (req, res) => {
             nome,
             email,
             password: hashedPassword,
-            marketplaceId
+            marketplaceId,
+            id_juros, habilitar_parcelas
         });
 
         // 4. Geração do token JWT

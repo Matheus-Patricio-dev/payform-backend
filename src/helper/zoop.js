@@ -1,5 +1,6 @@
 require('dotenv').config();
 const axios = require('axios');
+const Cliente = require('../models/clientes/cliente');
 
 const API_KEY = process.env.API_KEY; // Defina no .env
 const API_BASE_64 = process.env.API_BASE_64; // Defina no .env
@@ -73,4 +74,31 @@ async function consultarSaldoSeller(marketplaceId, sellerId) {
     }
 }
 
-module.exports = { generateTransaction, consultarSaldoSeller };
+async function createPlanZoop(data, marketplaceId) {
+    try {
+        const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/recurrence_plans/`;
+
+        if (!marketplaceId) {
+            return;
+        }
+
+        // Monta o header Basic Auth
+        const response = await axios.post(url, data, {
+            headers: {
+                'Authorization': `Basic ${API_BASE_64}`,
+                'Content-Type': 'application/json',
+            },
+            timeout: 10000 // 10 segundos
+        });
+
+        return response?.data
+    } catch (error) {
+        console.log(error?.response?.data)
+        if (error.response) {
+            return { error: true, status: error.response.status, data: error.response.data };
+        }
+        return { error: true, message: error.message };
+    }
+}
+
+module.exports = { generateTransaction, consultarSaldoSeller, createPlanZoop };

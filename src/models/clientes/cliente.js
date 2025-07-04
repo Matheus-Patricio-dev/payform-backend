@@ -20,14 +20,25 @@ class Cliente {
             marketplaceData = { id: marketplaceDoc.id, ...marketplaceDoc.data() };
         }
 
-        // 3. Retorna ambos os dados
+        // 3. Busca a taxa de juros, se houver id_juros
+        let taxa_juros = null;
+        if (clienteData.id_juros) {
+            const jurosDoc = await db.collection('juros').doc(clienteData.id_juros).get();
+            if (jurosDoc.exists) {
+                const jurosData = jurosDoc.data();
+                taxa_juros = jurosData.amount;
+            }
+        }
+
+        // 4. Retorna ambos os dados + taxa_juros (se houver)
         return {
             ...clienteData,
-            dataInfo: marketplaceData
+            dataInfo: marketplaceData,
+            ...(taxa_juros !== null && { taxa_juros }) // só adiciona se existir
         };
     }
 
-    static async criar({ nome, email, password, cargo, marketplaceId, status }) {
+    static async criar({ nome, email, password, cargo, marketplaceId, status, id_juros, habilitar_parcelas }) {
         try {
             // 1. Cria o cliente com ID aleatório do Firestore
             const clienteRef = await db.collection('clientes').add({
@@ -36,7 +47,9 @@ class Cliente {
                 password,
                 cargo,
                 marketplaceId,
-                status
+                status,
+                id_juros,
+                habilitar_parcelas
             });
             const clienteId = clienteRef.id;
 
@@ -285,7 +298,7 @@ class Cliente {
 
     // sellers ============
 
-    static async criarSeller({ id_seller, nome, email, password, marketplaceId }) {
+    static async criarSeller({ id_seller, nome, email, password, marketplaceId, id_juros, habilitar_parcelas }) {
         // 2. Criação do cliente (gera um novo ID)
         const clienteRef = db.collection('clientes').doc(); // Cria referência com novo ID
         await clienteRef.set({
@@ -293,7 +306,9 @@ class Cliente {
             email,
             password,
             cargo: 'seller',
-            marketplaceId
+            marketplaceId,
+            id_juros,
+            habilitar_parcelas
         });
 
         // 3. Criação do seller, usando o mesmo ID do cliente
