@@ -95,13 +95,13 @@ const getPaymentsTransactions = async (req, res) => {
         } else {
             return res.status(400).json({ message: 'Cargo inválido.' });
         }
-        console.log(data)
+
         // Busca as transações conforme o cargo do usuário
         const transactions = await Payment.getByUserRoleTransacoes(data);
         return res.status(200).json({ transactions });
 
     } catch (error) {
-        console.error('Erro ao buscar transações:', error);
+        console.log('Erro ao buscar transações:', error);
         return res.status(500).json({ message: error.message });
     }
 };

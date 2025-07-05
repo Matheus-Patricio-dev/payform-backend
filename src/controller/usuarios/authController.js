@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Cliente = require('../../models/clientes/cliente');
+const Payment = require('../../models/pagamentos/index');
 const { db } = require('../../../config/index');
 const { consultarSaldoSeller } = require('../../helper/zoop');
 
@@ -306,11 +307,51 @@ const listarSellers = async (req, res) => {
 const buscarDadosSellerGeral = async (req, res) => {
     try {
         const { id } = req.params;
-        const dados = await Cliente.getClientById(id);
+        // Busca o documento do cliente
+        const sellerDocSnap = await db.collection('clientes').doc(id).get();
+        const sellerDoc = { id: sellerDocSnap.id, ...sellerDocSnap.data() };
+        let data = {};
+
+        if (sellerDoc.cargo === "admin") {
+            data = {
+                userId: sellerDoc.id,
+                cargo: "admin",
+            };
+        } else if (sellerDoc.cargo === "marketplace") {
+            // Busca marketplace relacionado ao cliente
+            const mktSnapshot = await db.collection('marketplaces')
+                .where("cliente_id", "==", id)
+                .limit(1)
+                .get();
+
+            if (mktSnapshot.empty) {
+                return res.status(404).json({ message: 'Marketplace não encontrado para este cliente.' });
+            }
+
+            data = {
+                userId: sellerDoc.id,
+                cargo: "marketplace",
+                marketplaceId: mktSnapshot.docs[0].id,
+            };
+        } else if (sellerDoc.cargo === "seller") {
+            data = {
+                userId: sellerDoc.id,
+                cargo: "seller",
+            };
+        } else {
+            return res.status(400).json({ message: 'Cargo inválido.' });
+        }
+
+        // Busca as transações conforme o cargo do usuário
+        const dados = await Payment.getByUserRoleTransacoes(data);
+        console.log(dados, 'oi')
+
+        // const dados = await Cliente.getClientById(id);
         if (dados?.cliente?.id) {
             const sellerDados = await Cliente.buscarRelacionamentoCompletoPorClienteId(dados?.cliente?.id);
             const puxarSaldo = await consultarSaldoSeller(sellerDados?.clienteMarketplace?.marketplaceId, sellerDados?.seller?.id_seller);
             const saldo = puxarSaldo?.items;
+
             if (saldo) {
                 // 4. Busca documento atual do cliente no Firestore
                 const clienteDocRef = db.collection('clientes').doc(dados.cliente.id);

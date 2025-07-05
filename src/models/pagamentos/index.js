@@ -81,16 +81,50 @@ class Payment {
 
     static async getByUserRoleTransacoes({ userId, cargo, marketplaceId = null }) {
         let transactionsQuery = db.collection('transacoes');
+        let paymentsQuery = db.collection('transacoes');
+        const clientRef = db.collection('clientes').doc(userId);
+        // 1. Buscar o cliente
+        const clientDoc = await clientRef.get();
         if (cargo === 'seller') {
             // Busca o cliente pelo userId
             const sellerDoc = await db.collection('clientes').doc(userId).get();
             if (!sellerDoc.exists) return [];
             // Filtra as transações pelo seller_id
             transactionsQuery = transactionsQuery.where('seller_id', '==', sellerDoc.id);
+            paymentsQuery = paymentsQuery.where('seller_id', '==', sellerDoc.id);
         } else if (cargo === 'marketplace') {
             // Filtra as transações pelo marketplaceId
             transactionsQuery = transactionsQuery.where('marketplace_id', '==', marketplaceId);
+            paymentsQuery = paymentsQuery.where('marketplaceId', '==', marketplaceId);
         }
+        const clientData = { id: clientDoc.id, ...clientDoc.data() };
+
+        // // 2. Buscar pagamentos associados ao cliente
+        const paymentsSnapshot = await paymentsQuery.get();
+
+        const payments = await Promise.all(paymentsSnapshot.docs.map(async (paymentDoc) => {
+            const paymentData = paymentDoc.data();
+
+            // 3. Buscar transações associadas ao pagamento
+            const transactionsRef = db.collection('transacoes');
+            const transactionsSnapshot = await transactionsRef.where('pagamento_id', '==', paymentDoc.id).get();
+
+            const transactions = transactionsSnapshot.docs.map(transDoc => {
+                const transacaoData = transDoc.data();
+                return {
+                    ...transacaoData,
+                    cliente_nome: clientData.nome, // Adiciona o nome do cliente
+                    metodo_pagamento: paymentData.paymentMethods.join(', ') // Adiciona o método de pagamento
+                };
+            });
+
+            return {
+                ...paymentData,
+                id: paymentDoc.id,
+                transacoes: transactions // Transações associadas a este pagamento
+            };
+        }));
+
         // Se for admin, não aplica filtro
         const transactionsSnapshot = await transactionsQuery.get();
 
@@ -108,7 +142,11 @@ class Payment {
             return transactionData;
         }));
 
-        return transacoes;
+        return {
+            cliente: clientData,
+            pagamentos: payments.map(({ transacoes, ...rest }) => rest), // Retorna pagamentos sem transações
+            transacoes: transacoes // Transações de todos os pagamentos
+        }
     }
 
     static async update(id, data) {
