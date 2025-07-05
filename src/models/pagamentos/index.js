@@ -79,6 +79,38 @@ class Payment {
         return transacoes;
     }
 
+    static async getByUserRoleTransacoes({ userId, cargo, marketplaceId = null }) {
+        let transactionsQuery = db.collection('transacoes');
+        if (cargo === 'seller') {
+            // Busca o cliente pelo userId
+            const sellerDoc = await db.collection('clientes').doc(userId).get();
+            if (!sellerDoc.exists) return [];
+            // Filtra as transações pelo seller_id
+            transactionsQuery = transactionsQuery.where('seller_id', '==', sellerDoc.id);
+        } else if (cargo === 'marketplace') {
+            // Filtra as transações pelo marketplaceId
+            transactionsQuery = transactionsQuery.where('marketplace_id', '==', marketplaceId);
+        }
+        // Se for admin, não aplica filtro
+        const transactionsSnapshot = await transactionsQuery.get();
+
+        const transacoes = await Promise.all(transactionsSnapshot.docs.map(async (doc) => {
+            const transactionData = { id: doc.id, ...doc.data() };
+
+            // Busca os dados do pagamento usando o pagamento_id
+            const paymentDoc = await db.collection('pagamentos').doc(transactionData.pagamento_id).get();
+            transactionData.pagamento = paymentDoc.exists ? { id: paymentDoc.id, ...paymentDoc.data() } : null;
+
+            // Busca os dados do cliente usando o seller_id
+            const sellerDoc = await db.collection('clientes').doc(transactionData.seller_id).get();
+            transactionData.cliente = sellerDoc.exists ? { id: sellerDoc.id, ...sellerDoc.data() } : null;
+
+            return transactionData;
+        }));
+
+        return transacoes;
+    }
+
     static async update(id, data) {
         const paymentRef = db.collection('pagamentos').doc(id);
         await paymentRef.update(data);

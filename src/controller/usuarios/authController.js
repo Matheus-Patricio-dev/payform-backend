@@ -310,7 +310,6 @@ const buscarDadosSellerGeral = async (req, res) => {
         if (dados?.cliente?.id) {
             const sellerDados = await Cliente.buscarRelacionamentoCompletoPorClienteId(dados?.cliente?.id);
             const puxarSaldo = await consultarSaldoSeller(sellerDados?.clienteMarketplace?.marketplaceId, sellerDados?.seller?.id_seller);
-            console.log(puxarSaldo?.items, 'saldo')
             const saldo = puxarSaldo?.items;
             if (saldo) {
                 // 4. Busca documento atual do cliente no Firestore

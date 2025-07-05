@@ -55,10 +55,54 @@ const getPaymentsById = async (req, res) => {
 const getPaymentsTransactions = async (req, res) => {
     try {
         const { id } = req.params;
-        const transactions = await Payment.getBySellerIdTransacoes(id);
-        res.status(200).json({ transactions });
+
+        // Busca o documento do cliente
+        const sellerDocSnap = await db.collection('clientes').doc(id).get();
+
+        if (!sellerDocSnap.exists) {
+            return res.status(404).json({ message: 'Cliente não encontrado.' });
+        }
+
+        const sellerDoc = { id: sellerDocSnap.id, ...sellerDocSnap.data() };
+        let data = {};
+
+        if (sellerDoc.cargo === "admin") {
+            data = {
+                userId: sellerDoc.id,
+                cargo: "admin",
+            };
+        } else if (sellerDoc.cargo === "marketplace") {
+            // Busca marketplace relacionado ao cliente
+            const mktSnapshot = await db.collection('marketplaces')
+                .where("cliente_id", "==", id)
+                .limit(1)
+                .get();
+
+            if (mktSnapshot.empty) {
+                return res.status(404).json({ message: 'Marketplace não encontrado para este cliente.' });
+            }
+
+            data = {
+                userId: sellerDoc.id,
+                cargo: "marketplace",
+                marketplaceId: mktSnapshot.docs[0].id,
+            };
+        } else if (sellerDoc.cargo === "seller") {
+            data = {
+                userId: sellerDoc.id,
+                cargo: "seller",
+            };
+        } else {
+            return res.status(400).json({ message: 'Cargo inválido.' });
+        }
+        console.log(data)
+        // Busca as transações conforme o cargo do usuário
+        const transactions = await Payment.getByUserRoleTransacoes(data);
+        return res.status(200).json({ transactions });
+
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Erro ao buscar transações:', error);
+        return res.status(500).json({ message: error.message });
     }
 };
 
@@ -76,7 +120,6 @@ const deletePayment = async (req, res) => {
     try {
         const { id } = req.params;
         const response = await Payment.delete(id);
-        console.log(response)
         if (response?.error) {
             res.status(500).json({ error: response?.error });
         }

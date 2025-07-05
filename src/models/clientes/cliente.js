@@ -93,7 +93,6 @@ class Cliente {
     static async buscarSellersPorMarketplace(marketplaceId) {
         const sellersRef = db.collection('sellers');
         const querySnapshot = await sellersRef.where('marketplaceId', '==', marketplaceId).get();
-
         // Mapeia os resultados para um array de objetos com id e dados
         const sellers = querySnapshot.docs.map(doc => ({
             id: doc.id,
@@ -102,9 +101,7 @@ class Cliente {
 
         // Busca os dados dos clientes relacionados
         const clientesPromises = sellers.map(async (seller) => {
-            console.log(seller)
             const clienteSnap = await db.collection('clientes').doc(seller.cliente_id).get();
-            console.log(clienteSnap.data());
 
             return {
                 ...seller,
