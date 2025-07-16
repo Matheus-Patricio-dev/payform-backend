@@ -57,6 +57,8 @@ const authLogin = async (req, res) => {
             { expiresIn: '1d' }
         );
 
+        console.log(user)
+
         if (user?.cargo === "admin") {
             const dadosMKT = await Cliente.listarMarketplacesComClientes();
 
@@ -68,7 +70,7 @@ const authLogin = async (req, res) => {
             }
             return res.json({ token, painel, user: { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
         } else {
-            return res.json({ token, user: { id: user.id, nome: user.nome, email: user.email, taxa_juros: user?.taxa_juros, id_juros: user.id_juros, habilitar_parcelas: user.habilitar_parcelas, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
+            return res.json({ token, user: { id: user.id, juros: user.juros_data, nome: user.nome, email: user.email, taxa_juros: user?.taxa_juros, id_juros: user.id_juros, habilitar_parcelas: user.habilitar_parcelas, cargo: user.cargo, marketplaceId: user.marketplaceId, dataInfo: user.dataInfo } });
         }
     } catch (error) {
         return res.status(500).json({ error: error.message });
