@@ -172,6 +172,27 @@ const paymentTransactionZoop = async (req, res) => {
 
       console.log(zoopCreateTransaction);
 
+      if (zoopCreateTransaction?.error) {
+        // return {
+        //   success: false,
+        //   message: "Erro interno ao validar pagamento",
+        //   error: error.message,
+        // }
+        await validarPagamentoCartao(
+          zoopCreateTransaction?.id,
+          payment?.id,
+          "falha"
+        );
+        return res
+          .status(200)
+          .json({
+            data: {
+              ...zoopCreateTransaction?.error,
+              status_transacao: "falha",
+            },
+          });
+      }
+
       if (zoopCreateTransaction?.id) {
         const validacao = await validarPagamentoCartao(
           zoopCreateTransaction?.id,
@@ -219,7 +240,7 @@ const validarPagamentoCartao = async (
     // Criar nova transação
     const transactionRef = db.collection("transacoes").doc(); // Gera um novo ID automaticamente para a transação
     const transactionData = {
-      transacao_id_zoop: id_transacao_zoop,
+      transacao_id_zoop: id_transacao_zoop ? id_transacao_zoop : null,
       pagamento_id: id_pagamento,
       valor: pagamentoData.amount, // Acessa o valor do pagamento
       status: statusTransacao, // Status baseado na lógica definida
