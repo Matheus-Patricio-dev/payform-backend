@@ -231,7 +231,7 @@ const registerSellerToMarktplace = async (req, res) => {
         email,
         password: hashedPassword,
         marketplaceId,
-        taxa_padrao,
+        id_juros: taxa_padrao,
         taxa_repasse_juros,
         phone,
         website,
@@ -297,7 +297,6 @@ const updateSeller = async (req, res) => {
       taxa_padrao,
       taxa_repasse_juros,
       phone,
-      website,
       address,
     } = req.body;
     let hashedPassword = null;
@@ -314,6 +313,7 @@ const updateSeller = async (req, res) => {
         marketplaceId,
         id_juros: taxa_padrao,
         taxa_repasse_juros,
+        phone,
         address
       };
     } else {
@@ -323,6 +323,7 @@ const updateSeller = async (req, res) => {
         marketplaceId,
         id_juros: taxa_padrao,
         taxa_repasse_juros,
+        phone,
         address
       };
     }
@@ -358,7 +359,6 @@ const criarSeller = async (req, res) => {
       taxa_padrao,
       taxa_repasse_juros,
       phone,
-      website,
       address,
     } = req.body;
 
@@ -381,6 +381,7 @@ const criarSeller = async (req, res) => {
       marketplaceId,
       id_juros: taxa_padrao,
       taxa_repasse_juros,
+      phone,
       address
     });
 
