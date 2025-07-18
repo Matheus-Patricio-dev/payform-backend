@@ -1,6 +1,8 @@
 // controllers/subscribeController.js
 const Plano = require('../../models/subscribe/plano');
 const Assinatura = require('../../models/subscribe/assinatura');
+const { createPlanZoop } = require('../../helper/zoop');
+const Cliente = require('../../models/clientes/cliente');
 
 // ================== PLANOS ==================
 
@@ -80,6 +82,14 @@ const criarPlano = async (req, res) => {
                 return res.status(400).json({ error: `${requiredFields[field]} é obrigatório` });
             }
         }
+    }
+
+    const mkt = await Cliente.buscarPorIdMKTPayment(formData?.marketplaceId)
+    console.log(mkt);
+
+    if (mkt?.marketplaceId) {
+        const responseCreateAPIPlan = await createPlanZoop(formData, mkt?.marketplaceId)
+        console.log(responseCreateAPIPlan)
     }
 
     try {

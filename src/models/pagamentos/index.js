@@ -14,16 +14,16 @@ class Payment {
         await paymentRef.set(paymentData);
 
         // Criação da transação
-        const transactionRef = db.collection('transacoes').doc(); // Gera um novo ID automaticamente para a transação
-        const transactionData = {
-            pagamento_id: paymentRef.id,
-            valor: data.amount, // Acessa o valor do pagamento
-            status: "pendente", // Acessa o valor do pagamento
-            data_criacao: new Date().toISOString(), // Data atual
-            seller_id: data.seller_id, // Certifique-se de que seller_id está presente em data
-            marketplace_id: data.marketplaceId // Certifique-se de que marketplace_id está presente em data
-        };
-        await transactionRef.set(transactionData);
+        // const transactionRef = db.collection('transacoes').doc(); // Gera um novo ID automaticamente para a transação
+        // const transactionData = {
+        //     pagamento_id: paymentRef.id,
+        //     valor: data.amount, // Acessa o valor do pagamento
+        //     status: "pendente", // Acessa o valor do pagamento
+        //     data_criacao: new Date().toISOString(), // Data atual
+        //     seller_id: data.seller_id, // Certifique-se de que seller_id está presente em data
+        //     marketplace_id: data.marketplaceId // Certifique-se de que marketplace_id está presente em data
+        // };
+        // await transactionRef.set(transactionData);
 
         return { id: paymentRef.id, ...data };
     }
@@ -77,6 +77,76 @@ class Payment {
         }));
 
         return transacoes;
+    }
+
+    static async getByUserRoleTransacoes({ userId, cargo, marketplaceId = null }) {
+        let transactionsQuery = db.collection('transacoes');
+        let paymentsQuery = db.collection('transacoes');
+        const clientRef = db.collection('clientes').doc(userId);
+        // 1. Buscar o cliente
+        const clientDoc = await clientRef.get();
+        if (cargo === 'seller') {
+            // Busca o cliente pelo userId
+            const sellerDoc = await db.collection('clientes').doc(userId).get();
+            if (!sellerDoc.exists) return [];
+            // Filtra as transações pelo seller_id
+            transactionsQuery = transactionsQuery.where('seller_id', '==', sellerDoc.id);
+            paymentsQuery = paymentsQuery.where('seller_id', '==', sellerDoc.id);
+        } else if (cargo === 'marketplace') {
+            // Filtra as transações pelo marketplaceId
+            transactionsQuery = transactionsQuery.where('marketplace_id', '==', marketplaceId);
+            paymentsQuery = paymentsQuery.where('marketplaceId', '==', marketplaceId);
+        }
+        const clientData = { id: clientDoc.id, ...clientDoc.data() };
+
+        // // 2. Buscar pagamentos associados ao cliente
+        const paymentsSnapshot = await paymentsQuery.get();
+
+        const payments = await Promise.all(paymentsSnapshot.docs.map(async (paymentDoc) => {
+            const paymentData = paymentDoc.data();
+
+            // 3. Buscar transações associadas ao pagamento
+            const transactionsRef = db.collection('transacoes');
+            const transactionsSnapshot = await transactionsRef.where('pagamento_id', '==', paymentDoc.id).get();
+
+            const transactions = transactionsSnapshot.docs.map(transDoc => {
+                const transacaoData = transDoc.data();
+                return {
+                    ...transacaoData,
+                    cliente_nome: clientData.nome, // Adiciona o nome do cliente
+                    metodo_pagamento: paymentData.paymentMethods.join(', ') // Adiciona o método de pagamento
+                };
+            });
+
+            return {
+                ...paymentData,
+                id: paymentDoc.id,
+                transacoes: transactions // Transações associadas a este pagamento
+            };
+        }));
+
+        // Se for admin, não aplica filtro
+        const transactionsSnapshot = await transactionsQuery.get();
+
+        const transacoes = await Promise.all(transactionsSnapshot.docs.map(async (doc) => {
+            const transactionData = { id: doc.id, ...doc.data() };
+
+            // Busca os dados do pagamento usando o pagamento_id
+            const paymentDoc = await db.collection('pagamentos').doc(transactionData.pagamento_id).get();
+            transactionData.pagamento = paymentDoc.exists ? { id: paymentDoc.id, ...paymentDoc.data() } : null;
+
+            // Busca os dados do cliente usando o seller_id
+            const sellerDoc = await db.collection('clientes').doc(transactionData.seller_id).get();
+            transactionData.cliente = sellerDoc.exists ? { id: sellerDoc.id, ...sellerDoc.data() } : null;
+
+            return transactionData;
+        }));
+
+        return {
+            cliente: clientData,
+            pagamentos: payments.map(({ transacoes, ...rest }) => rest), // Retorna pagamentos sem transações
+            transacoes: transacoes // Transações de todos os pagamentos
+        }
     }
 
     static async update(id, data) {
