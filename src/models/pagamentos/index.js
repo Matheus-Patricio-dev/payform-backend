@@ -14,16 +14,16 @@ class Payment {
         await paymentRef.set(paymentData);
 
         // Criação da transação
-        const transactionRef = db.collection('transacoes').doc(); // Gera um novo ID automaticamente para a transação
-        const transactionData = {
-            pagamento_id: paymentRef.id,
-            valor: data.amount, // Acessa o valor do pagamento
-            status: "pendente", // Acessa o valor do pagamento
-            data_criacao: new Date().toISOString(), // Data atual
-            seller_id: data.seller_id, // Certifique-se de que seller_id está presente em data
-            marketplace_id: data.marketplaceId // Certifique-se de que marketplace_id está presente em data
-        };
-        await transactionRef.set(transactionData);
+        // const transactionRef = db.collection('transacoes').doc(); // Gera um novo ID automaticamente para a transação
+        // const transactionData = {
+        //     pagamento_id: paymentRef.id,
+        //     valor: data.amount, // Acessa o valor do pagamento
+        //     status: "pendente", // Acessa o valor do pagamento
+        //     data_criacao: new Date().toISOString(), // Data atual
+        //     seller_id: data.seller_id, // Certifique-se de que seller_id está presente em data
+        //     marketplace_id: data.marketplaceId // Certifique-se de que marketplace_id está presente em data
+        // };
+        // await transactionRef.set(transactionData);
 
         return { id: paymentRef.id, ...data };
     }

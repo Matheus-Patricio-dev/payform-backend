@@ -339,7 +339,17 @@ class Cliente {
     password,
     marketplaceId,
     id_juros,
-    habilitar_parcelas,
+    taxa_repasse_juros,
+    phone,
+    website,
+    contactPerson,
+    street,
+    number,
+    complement,
+    neighborhood,
+    city,
+    zipCode,
+    country,
   }) {
     // 2. Criação do cliente (gera um novo ID)
     const clienteRef = db.collection("clientes").doc(); // Cria referência com novo ID
@@ -350,7 +360,17 @@ class Cliente {
       cargo: "seller",
       marketplaceId,
       id_juros,
-      habilitar_parcelas,
+      taxa_repasse_juros,
+      phone,
+      website,
+      contactPerson,
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      zipCode,
+      country,
     });
 
     // 3. Criação do seller, usando o mesmo ID do cliente
