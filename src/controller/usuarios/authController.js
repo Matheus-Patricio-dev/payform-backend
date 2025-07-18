@@ -16,8 +16,11 @@ const authRegister = async (req, res) => {
       confirmpassword,
       marketplaceId,
       status,
-      id_juros,
-      habilitar_parcelas,
+      taxa_padrao,
+      taxa_repasse_juros,
+      phone,
+      website,
+      address,
     } = req.body;
     // Verifica se password e confirmpassword são iguais
     if (password !== confirmpassword) {
@@ -39,8 +42,11 @@ const authRegister = async (req, res) => {
       cargo,
       marketplaceId,
       status,
-      id_juros,
-      habilitar_parcelas,
+      id_juros: taxa_padrao,
+      taxa_repasse_juros,
+      phone,
+      website,
+      address,
     });
     // Gera token JWT com o id do usuário
     const token = jwt.sign(
@@ -199,6 +205,11 @@ const registerSellerToMarktplace = async (req, res) => {
         confirmpassword,
         marketplaceId,
         id_seller,
+        taxa_padrao,
+        taxa_repasse_juros,
+        phone,
+        website,
+        address,
       } = req.body;
       // Verifica se password e confirmpassword são iguais
       if (password !== confirmpassword) {
@@ -220,6 +231,11 @@ const registerSellerToMarktplace = async (req, res) => {
         email,
         password: hashedPassword,
         marketplaceId,
+        taxa_padrao,
+        taxa_repasse_juros,
+        phone,
+        website,
+        address,
       });
 
       return res
@@ -282,14 +298,7 @@ const updateSeller = async (req, res) => {
       taxa_repasse_juros,
       phone,
       website,
-      contactPerson,
-      street,
-      number,
-      complement,
-      neighborhood,
-      city,
-      zipCode,
-      country,
+      address,
     } = req.body;
     let hashedPassword = null;
     if (password) {
@@ -305,16 +314,7 @@ const updateSeller = async (req, res) => {
         marketplaceId,
         id_juros: taxa_padrao,
         taxa_repasse_juros,
-        phone,
-        website,
-        contactPerson,
-        street,
-        number,
-        complement,
-        neighborhood,
-        city,
-        zipCode,
-        country,
+        address
       };
     } else {
       dados = {
@@ -323,16 +323,7 @@ const updateSeller = async (req, res) => {
         marketplaceId,
         id_juros: taxa_padrao,
         taxa_repasse_juros,
-        phone,
-        website,
-        contactPerson,
-        street,
-        number,
-        complement,
-        neighborhood,
-        city,
-        zipCode,
-        country,
+        address
       };
     }
     // Monta os dados, incluindo marketplace apenas se existir
@@ -368,14 +359,7 @@ const criarSeller = async (req, res) => {
       taxa_repasse_juros,
       phone,
       website,
-      contactPerson,
-      street,
-      number,
-      complement,
-      neighborhood,
-      city,
-      zipCode,
-      country,
+      address,
     } = req.body;
 
     if (password !== confirmpassword) {
@@ -397,16 +381,7 @@ const criarSeller = async (req, res) => {
       marketplaceId,
       id_juros: taxa_padrao,
       taxa_repasse_juros,
-      phone,
-      website,
-      contactPerson,
-      street,
-      number,
-      complement,
-      neighborhood,
-      city,
-      zipCode,
-      country,
+      address
     });
 
     // 4. Geração do token JWT

@@ -342,14 +342,7 @@ class Cliente {
     taxa_repasse_juros,
     phone,
     website,
-    contactPerson,
-    street,
-    number,
-    complement,
-    neighborhood,
-    city,
-    zipCode,
-    country,
+    address,
   }) {
     // 2. Criação do cliente (gera um novo ID)
     const clienteRef = db.collection("clientes").doc(); // Cria referência com novo ID
@@ -363,14 +356,7 @@ class Cliente {
       taxa_repasse_juros,
       phone,
       website,
-      contactPerson,
-      street,
-      number,
-      complement,
-      neighborhood,
-      city,
-      zipCode,
-      country,
+      address,
     });
 
     // 3. Criação do seller, usando o mesmo ID do cliente
