@@ -297,6 +297,7 @@ const updateSeller = async (req, res) => {
       taxa_padrao,
       taxa_repasse_juros,
       phone,
+      website,
       address,
     } = req.body;
     let hashedPassword = null;
@@ -314,6 +315,7 @@ const updateSeller = async (req, res) => {
         id_juros: taxa_padrao,
         taxa_repasse_juros,
         phone,
+        website,
         address
       };
     } else {
@@ -324,6 +326,7 @@ const updateSeller = async (req, res) => {
         id_juros: taxa_padrao,
         taxa_repasse_juros,
         phone,
+        website,
         address
       };
     }
@@ -359,6 +362,7 @@ const criarSeller = async (req, res) => {
       taxa_padrao,
       taxa_repasse_juros,
       phone,
+      website,
       address,
     } = req.body;
 
@@ -382,6 +386,7 @@ const criarSeller = async (req, res) => {
       id_juros: taxa_padrao,
       taxa_repasse_juros,
       phone,
+      website,
       address
     });
 
