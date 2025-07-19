@@ -151,11 +151,12 @@ class Cliente {
     // 1. Busca todos os marketplaces
     const snapshot = await db.collection("marketplaces").get();
 
-    // 2. Para cada marketplace, busca o cliente relacionado
+    // 2. Para cada marketplace, busca o cliente relacionado e as transações pagas
     const marketplaces = await Promise.all(
       snapshot.docs.map(async (doc) => {
         const marketplace = { id: doc.id, ...doc.data() };
 
+        // Busca o cliente relacionado
         let cliente = null;
         if (marketplace.cliente_id) {
           const clienteDoc = await db
@@ -167,7 +168,23 @@ class Cliente {
           }
         }
 
-        return { ...marketplace, cliente };
+        // 3. Busca as transações pagas relacionadas ao marketplace
+        const transacoesSnapshot = await db
+          .collection("transacoes")
+          .where("marketplace_id", "==", marketplace.id)
+          .where("status", "==", "pago")
+          .get();
+
+        // 4. Soma o total faturado
+        const totalFaturado = transacoesSnapshot.docs.reduce(
+          (total, transacaoDoc) => {
+            const transacao = transacaoDoc.data();
+            return total + (parseFloat(transacao.valor) || 0); // Considera o valor da transação
+          },
+          0
+        );
+
+        return { ...marketplace, cliente, total_faturado: totalFaturado };
       })
     );
 

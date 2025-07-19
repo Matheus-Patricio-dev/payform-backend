@@ -1,5 +1,9 @@
 // controllers/PaymentController.js
-const { generateTransaction } = require("../../helper/zoop");
+const {
+  generateTransaction,
+  associarPlanoJuros,
+  desacociarPlanoJuros,
+} = require("../../helper/zoop");
 const Payment = require("../../models/pagamentos/index");
 
 const { db } = require("../../../config/index");
@@ -140,20 +144,59 @@ const deletePayment = async (req, res) => {
   }
 };
 
+const fluxoRepasseJuros = async (dados, pagamento, sellerId, marketplaceId) => {
+  // Converte as strings para números
+
+  const installments = parseInt(dados?.installments, 10);
+  const parcelasSemJuros = parseInt(pagamento?.parcelasSemJuros, 10);
+
+  // Valida se a parcela selecionada é maior que a parcela sem juros configurada
+  if (installments > parcelasSemJuros) {
+    const jurosPadrao = (
+      await db.collection("juros").doc(dados?.id_juros).get()
+    ).data();
+
+    // 1 etapa - desassociar plano de juros do vendedor
+    const id_repasse_zoop = dados?.taxa_repasse_juros; // id de repasse de juros zoop
+
+    const desasociarPlanoJurosVendedor = await desacociarPlanoJuros(
+      id_repasse_zoop,
+      marketplaceId
+    );
+
+    // 2 etapa - associar plano novamente padrão de juros do vendedor
+    const juros_padrao_vendedor = jurosPadrao?.id_zoop; // id do plano padrão zoop vendedor
+    const dataPayload = {
+      plan: juros_padrao_vendedor,
+      customer: sellerId,
+      quantity: 1,
+    };
+    const associarPlanoJurosVendedor = await associarPlanoJuros(
+      dataPayload,
+      marketplaceId
+    );
+
+    return true; // Retorna true se a condição for atendida
+  }
+
+  console.log("nao tem");
+  return false; // Retorna false se a condição não for atendida
+};
+
 const paymentTransactionZoop = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
     const payment = await Payment.getById(id);
 
-    // receber dados do cartão de cŕedito ou PIX
-
+    // fuxo de pagamento
     if (payment) {
       const clienteId = payment.seller_id; // O seller_id em Payment é o cliente_id em Seller
 
       // 2. Busca o seller pelo cliente_id
       const seller = await Cliente.buscarPorIdSellerPayment(clienteId);
       const mkt = await Cliente.buscarPorIdMKTPayment(payment?.marketplaceId);
+
       if (!seller) {
         return res.status(404).json({
           message: "Seller não encontrado para o cliente_id informado.",
@@ -161,6 +204,13 @@ const paymentTransactionZoop = async (req, res) => {
       }
       const sellerId = seller.id_seller;
       const marketplaceId = mkt?.marketplaceId;
+
+      const dataRepasse = await fluxoRepasseJuros(
+        data,
+        payment,
+        sellerId,
+        marketplaceId
+      );
 
       const zoopCreateTransaction = await generateTransaction(
         marketplaceId,
@@ -173,24 +223,17 @@ const paymentTransactionZoop = async (req, res) => {
       console.log(zoopCreateTransaction);
 
       if (zoopCreateTransaction?.error) {
-        // return {
-        //   success: false,
-        //   message: "Erro interno ao validar pagamento",
-        //   error: error.message,
-        // }
         await validarPagamentoCartao(
           zoopCreateTransaction?.id,
           payment?.id,
           "falha"
         );
-        return res
-          .status(200)
-          .json({
-            data: {
-              ...zoopCreateTransaction?.error,
-              status_transacao: "falha",
-            },
-          });
+        return res.status(200).json({
+          data: {
+            ...zoopCreateTransaction?.error,
+            status_transacao: "falha",
+          },
+        });
       }
 
       if (zoopCreateTransaction?.id) {
@@ -202,7 +245,6 @@ const paymentTransactionZoop = async (req, res) => {
         console.log(validacao);
         res.status(200).json({ data: validacao });
       }
-      // res.status(200).json({ data: zoopCreateTransaction });
     }
   } catch (error) {
     console.log(error);
