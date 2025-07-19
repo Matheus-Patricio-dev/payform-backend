@@ -11,6 +11,17 @@ const API_BASE_64 = process.env.API_BASE_64; // Defina no .env
  * @param {Object} pagamento - Objeto de pagamento { amount, description }
  * @returns {Promise<Object>} - Dados da transação ou erro
  */
+const convertToCents = (amountStr) => {
+  if (!amountStr) return 0; // Retorna 0 se a string estiver vazia ou indefinida
+
+  // Remove espaços em branco e substitui vírgula por ponto
+  const normalizedAmount = amountStr.trim().replace(",", ".");
+
+  // Converte para float e multiplica por 100
+  const amountInCents = Math.round(parseFloat(normalizedAmount) * 100);
+
+  return amountInCents;
+};
 async function generateTransaction(marketplaceId, sellerId, pagamento, dados) {
   try {
     // transação com credit e pix ( separação de funções )
@@ -51,6 +62,7 @@ async function createZoopPaymentWithCredit(
   dados
 ) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
+  const amount = convertToCents(pagamento?.amount);
 
   const data = {
     payment_type: "credit",
@@ -68,7 +80,7 @@ async function createZoopPaymentWithCredit(
       type: "card",
       usage: "single_use",
       currency: "BRL",
-      amount: parseFloat(dados?.amount),
+      amount: amount,
     },
     installment_plan: {
       number_installments: dados?.installments,
@@ -113,14 +125,14 @@ async function createZoopPaymentWithCredit(
 }
 async function createZoopPaymentWithPix(marketplaceId, sellerId, pagamento) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
-
+  const amount = convertToCents(pagamento?.amount);
   const data = {
     on_behalf_of: sellerId,
     description: pagamento.description || "Transação via integração",
     currency: "BRL",
-    amount: parseFloat(pagamento.amount), // em centavos
+    amount: amount, // em centavos
     // amount: parseFloat(pagamento.amount), // em centavos
-    amount: parseInt(pagamento.amount, 10), // obrigatório e em centavos
+    // amount: parseInt(pagamento.amount, 10), // obrigatório e em centavos
     payment_type: "pix",
   };
 
@@ -197,4 +209,72 @@ async function createPlanZoop(data, marketplaceId) {
   }
 }
 
-module.exports = { generateTransaction, consultarSaldoSeller, createPlanZoop };
+async function desacociarPlanoJuros(taxa_repasse_juros, marketplaceId) {
+  try {
+    const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/subscriptions/${taxa_repasse_juros}`;
+
+    if (!marketplaceId) {
+      return;
+    }
+
+    // Monta o header Basic Auth
+    const response = await axios.delete(url, {
+      headers: {
+        Authorization: `Basic ${API_BASE_64}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000, // 10 segundos
+    });
+    console.log(response, " one");
+    return response?.data;
+  } catch (error) {
+    console.log(error?.response?.data, 'one');
+    if (error.response) {
+      return {
+        error: true,
+        status: error.response.status,
+        data: error.response.data,
+      };
+    }
+    return { error: true, message: error.message };
+  }
+}
+
+async function associarPlanoJuros(data, marketplaceId) {
+  try {
+    const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/subscriptions`;
+
+    if (!marketplaceId) {
+      return;
+    }
+
+    // Monta o header Basic Auth
+    const response = await axios.post(url, data, {
+      headers: {
+        Authorization: `Basic ${API_BASE_64}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000, // 10 segundos
+    });
+    console.log(response, "twoooo");
+
+    return response?.data;
+  } catch (error) {
+    console.log(error?.response?.data, 'two');
+    if (error.response) {
+      return {
+        error: true,
+        status: error.response.status,
+        data: error.response.data,
+      };
+    }
+    return { error: true, message: error.message };
+  }
+}
+module.exports = {
+  generateTransaction,
+  consultarSaldoSeller,
+  createPlanZoop,
+  associarPlanoJuros,
+  desacociarPlanoJuros,
+};

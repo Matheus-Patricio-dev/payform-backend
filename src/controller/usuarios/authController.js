@@ -290,6 +290,7 @@ const updateSeller = async (req, res) => {
   try {
     const { idSeller } = req.params; // pega o id da URL, ex: /clientes/:id
     const {
+      id_seller,
       nome,
       email,
       password,
@@ -308,6 +309,7 @@ const updateSeller = async (req, res) => {
     let dados = {};
     if (hashedPassword) {
       dados = {
+        id_seller,
         nome,
         email,
         password: hashedPassword,
@@ -320,6 +322,7 @@ const updateSeller = async (req, res) => {
       };
     } else {
       dados = {
+        id_seller,
         nome,
         email,
         marketplaceId,
@@ -332,7 +335,7 @@ const updateSeller = async (req, res) => {
     }
     // Monta os dados, incluindo marketplace apenas se existir
 
-    const resultado = await Cliente.atualizarSeller(idSeller, dados); // chama a função de atualizar
+    const resultado = await Cliente.atualizarSeller(id_seller, dados); // chama a função de atualizar
 
     return res.status(200).json({ dados: resultado });
   } catch (error) {
