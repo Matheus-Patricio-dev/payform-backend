@@ -11,25 +11,34 @@ const API_BASE_64 = process.env.API_BASE_64; // Defina no .env
  * @param {Object} pagamento - Objeto de pagamento { amount, description }
  * @returns {Promise<Object>} - Dados da transação ou erro
  */
-const convertToCents = (amountStr) => {
-  if (!amountStr) return 0; // Retorna 0 se a string estiver vazia ou indefinida
+const convertToCents = (amount) => {
+  if (amount === null || amount === undefined) return 0; // Retorna 0 se o valor for nulo ou indefinido
 
-  // Remove espaços em branco e substitui vírgula por ponto
-  const normalizedAmount = amountStr.trim().replace(",", ".");
+  // Converte para float se for uma string, caso contrário, usa o número diretamente
+  const normalizedAmount =
+    typeof amount === "string" ? amount.trim().replace(",", ".") : amount;
 
   // Converte para float e multiplica por 100
   const amountInCents = Math.round(parseFloat(normalizedAmount) * 100);
 
   return amountInCents;
 };
-async function generateTransaction(marketplaceId, sellerId, pagamento, dados) {
+async function generateTransaction(
+  marketplaceId,
+  sellerId,
+  pagamento,
+  dados,
+  zpkKey
+) {
   try {
     // transação com credit e pix ( separação de funções )
-    if (pagamento?.paymentMethods === "PIX") {
+    if (dados?.paymentMethod === "pix") {
       const responsePix = await createZoopPaymentWithPix(
         marketplaceId,
         sellerId,
-        pagamento
+        pagamento,
+        dados,
+        zpkKey
       );
 
       return responsePix;
@@ -38,7 +47,8 @@ async function generateTransaction(marketplaceId, sellerId, pagamento, dados) {
         marketplaceId,
         sellerId,
         pagamento,
-        dados
+        dados,
+        zpkKey
         // enviar cartão de cŕedito
       );
       return responseCreditCard;
@@ -55,14 +65,17 @@ async function generateTransaction(marketplaceId, sellerId, pagamento, dados) {
     return { error: true, message: error.message };
   }
 }
+
 async function createZoopPaymentWithCredit(
   marketplaceId,
   sellerId,
   pagamento,
-  dados
+  dados,
+  zpkKey
 ) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
-  const amount = convertToCents(pagamento?.amount);
+
+  const amount = convertToCents(dados?.installmentValue);
   const expiry = dados?.expiry; // Supondo que dados.expiry esteja no formato "mm/aa"
   const [month, year] = expiry.split("/"); // Divide a string em mês e ano
 
@@ -80,7 +93,7 @@ async function createZoopPaymentWithCredit(
         holder_name: dados?.name,
         expiration_month: expiration_month,
         expiration_year: expiration_year,
-        security_code: "233",
+        security_code: dados?.cvc,
       },
       type: "card",
       usage: "single_use",
@@ -88,7 +101,7 @@ async function createZoopPaymentWithCredit(
       amount: amount,
     },
     installment_plan: {
-      number_installments: dados?.installments,
+      number_installments: parseInt(dados?.installments),
     },
     three_d_secure: {
       on_failure: "continue",
@@ -114,13 +127,13 @@ async function createZoopPaymentWithCredit(
       ip_address: "22222",
       user_agent: "Mozilla/5.0",
     },
-    capture: false,
   };
+
 
   // Monta o header Basic Auth
   const response = await axios.post(url, data, {
     headers: {
-      Authorization: `Basic ${API_BASE_64}`,
+      Authorization: `Basic ${zpkKey}`,
       "Content-Type": "application/json",
     },
     timeout: 10000, // 10 segundos
@@ -128,7 +141,14 @@ async function createZoopPaymentWithCredit(
   // receber se foi pago ou não e atualizar a tabela de transações e devolver ao frontend
   return response.data;
 }
-async function createZoopPaymentWithPix(marketplaceId, sellerId, pagamento) {
+
+async function createZoopPaymentWithPix(
+  marketplaceId,
+  sellerId,
+  pagamento,
+  dados,
+  zpkKey
+) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
   const amount = convertToCents(pagamento?.amount);
   const data = {
@@ -136,21 +156,91 @@ async function createZoopPaymentWithPix(marketplaceId, sellerId, pagamento) {
     description: pagamento.description || "Transação via integração",
     currency: "BRL",
     amount: amount, // em centavos
-    // amount: parseFloat(pagamento.amount), // em centavos
-    // amount: parseInt(pagamento.amount, 10), // obrigatório e em centavos
     payment_type: "pix",
   };
 
-  // Monta o header Basic Auth
+  // Função para converter para Base64 e garantir que termine com Og==
+  const toBase64WithOg = (str) => {
+    // Adiciona um caractere que garante o resultado final desejado
+    const adjustedString = str + " "; // Adiciona um espaço para o ajuste
+    let base64 = btoa(unescape(encodeURIComponent(adjustedString)));
+
+    // Adiciona preenchimento se necessário
+    while (base64.length % 4) {
+      base64 += "=";
+    }
+
+    return base64;
+  };
+
+  const apiBase64 = toBase64WithOg(String(zpkKey));
+
+  // // Monta o header Basic Auth
   const response = await axios.post(url, data, {
     headers: {
-      Authorization: `Basic ${API_BASE_64}`,
+      Authorization: `Basic ${zpkKey}`,
       "Content-Type": "application/json",
     },
     timeout: 10000, // 10 segundos
   });
 
   return response.data;
+  // return {
+  //   id: "5dd60d6934ea4f4c8b160d5567973120",
+  //   resource: "transaction",
+  //   status: "pending",
+  //   amount: "250.00",
+  //   original_amount: "250.00",
+  //   currency: "BRL",
+  //   description: "teste",
+  //   payment_type: "pix",
+  //   gateway_authorizer: "zoop",
+  //   on_behalf_of: "25cbfba45ed54df7b278b0f5e1d4fc67",
+  //   statement_descriptor: "Terere Beach",
+  //   payment_method: {
+  //     id: "a456bc31de0e47d285febad6e217a9a3",
+  //     provider: "ZOOP",
+  //     version: "1.0.0",
+  //     type: "DYNAMIC",
+  //     reusable: false,
+  //     allow_update: false,
+  //     expiration_date: "2025-07-22 21:46:48",
+  //     key: { type: "EVP", value: "5eee0bc7-a403-4ef0-9fb1-4b90630c11cf" },
+  //     pix_link: "NA",
+  //     qr_code: {
+  //       emv: "00020101021226850014br.gov.bcb.pix2563qrcode.zoop.com.br/dynamic/4cd480e7-1652-4694-8b94-41f6105832fd5204000053039865802BR5925ZOOP TECNOLOGIA & INSTITU6009Sao Paulo610901227-20062070503***6304C7D7",
+  //     },
+  //   },
+  //   point_of_sale: { entry_mode: "barcode" },
+  //   refunded: false,
+  //   voided: false,
+  //   captured: false,
+  //   fees: "0.00",
+  //   uri: "/v1/marketplaces/4f3552927318466aa4fc092b20c3204a/transactions/5dd60d6934ea4f4c8b160d5567973120",
+  //   metadata: {},
+  //   expected_on: "2025-07-21T21:46:46.658447+00:00",
+  //   created_at: "2025-07-21T21:46:46.658447+00:00",
+  //   updated_at: "2025-07-21T21:46:46.658447+00:00",
+  //   history: [
+  //     {
+  //       id: "6673fdffd9a04376a69f614de4eaa057",
+  //       transaction: "5dd60d6934ea4f4c8b160d5567973120",
+  //       amount: "250.00",
+  //       operation_type: "created",
+  //       status: "succeeded",
+  //       created_at: "2025-07-21 21:46:46",
+  //     },
+  //     {
+  //       id: "d02247b208f9426abd800d90396ad21d",
+  //       transaction: "5dd60d6934ea4f4c8b160d5567973120",
+  //       amount: "250.00",
+  //       operation_type: "proposal",
+  //       status: "succeeded",
+  //       authorizer: "zoop",
+  //       created_at: "2025-07-21 21:46:46",
+  //     },
+  //   ],
+  // };
 }
 
 async function consultarSaldoSeller(marketplaceId, sellerId) {

@@ -21,6 +21,9 @@ const authRegister = async (req, res) => {
       phone,
       website,
       address,
+      zpk_id_marketplace,
+      cpf_cnpj,
+      contactPerson
     } = req.body;
     // Verifica se password e confirmpassword são iguais
     if (password !== confirmpassword) {
@@ -47,6 +50,9 @@ const authRegister = async (req, res) => {
       phone,
       website,
       address,
+      zpk_id_marketplace,
+      cpf_cnpj,
+      contactPerson
     });
     // Gera token JWT com o id do usuário
     const token = jwt.sign(
@@ -82,8 +88,6 @@ const authLogin = async (req, res) => {
       JWT_SECRET,
       { expiresIn: "1d" }
     );
-
-    console.log(user);
 
     if (user?.cargo === "admin") {
       const dadosMKT = await Cliente.listarMarketplacesComClientes();
@@ -210,7 +214,10 @@ const registerSellerToMarktplace = async (req, res) => {
         phone,
         website,
         address,
+        cpf_cnpj,
+        contactPerson
       } = req.body;
+      
       // Verifica se password e confirmpassword são iguais
       if (password !== confirmpassword) {
         return res.status(400).json({ error: "As senhas não conferem." });
@@ -236,6 +243,8 @@ const registerSellerToMarktplace = async (req, res) => {
         phone,
         website,
         address,
+        cpf_cnpj,
+        contactPerson
       });
 
       return res
@@ -253,7 +262,19 @@ const registerSellerToMarktplace = async (req, res) => {
 const updateMarketplace = async (req, res) => {
   try {
     const { idCliente } = req.params; // pega o id da URL, ex: /clientes/:id
-    const { nome, email, password, status, marketplaceId } = req.body;
+    const {
+      nome,
+      email,
+      password,
+      status,
+      marketplaceId,
+      zpk_id_marketplace,
+      phone,
+      website,
+      address,
+      cpf_cnpj,
+      contactPerson
+    } = req.body;
     let hashedPassword = null;
     if (password) {
       const saltRounds = 10;
@@ -267,6 +288,12 @@ const updateMarketplace = async (req, res) => {
         status,
         password: hashedPassword,
         marketplaceId,
+        zpk_id_marketplace,
+        phone,
+        website,
+        address,
+        cpf_cnpj,
+        contactPerson
       };
     } else {
       dados = {
@@ -274,6 +301,12 @@ const updateMarketplace = async (req, res) => {
         email,
         status,
         marketplaceId,
+        zpk_id_marketplace,
+        phone,
+        website,
+        address,
+        cpf_cnpj,
+        contactPerson
       };
     }
     // Monta os dados, incluindo marketplace apenas se existir
@@ -286,46 +319,12 @@ const updateMarketplace = async (req, res) => {
   }
 };
 
-const createMarketplace = async (req, res) => {
-  try {
-    const { idCliente } = req.params; // pega o id da URL, ex: /clientes/:id
-    const { nome, email, password, status, marketplaceId } = req.body;
-    let hashedPassword = null;
-    if (password) {
-      const saltRounds = 10;
-      hashedPassword = await bcrypt.hash(password, saltRounds);
-    }
-    let dados = {};
-    if (hashedPassword) {
-      dados = {
-        nome,
-        email,
-        status,
-        password: hashedPassword,
-        marketplaceId,
-      };
-    } else {
-      dados = {
-        nome,
-        email,
-        status,
-        marketplaceId,
-      };
-    }
-    // Monta os dados, incluindo marketplace apenas se existir
-
-    const resultado = await Cliente.atualizar(idCliente, dados); // chama a função de atualizar
-
-    return res.status(200).json({ dados: resultado });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-};
 const updateSeller = async (req, res) => {
   try {
     const { idSeller } = req.params; // pega o id da URL, ex: /clientes/:id
     const {
       id_seller,
+      cliente_id,
       nome,
       email,
       password,
@@ -335,6 +334,8 @@ const updateSeller = async (req, res) => {
       phone,
       website,
       address,
+      cpf_cnpj,
+      contactPerson
     } = req.body;
     let hashedPassword = null;
     if (password) {
@@ -353,7 +354,9 @@ const updateSeller = async (req, res) => {
         taxa_repasse_juros,
         phone,
         website,
-        address
+        address,
+        cpf_cnpj,
+        contactPerson
       };
     } else {
       dados = {
@@ -365,12 +368,14 @@ const updateSeller = async (req, res) => {
         taxa_repasse_juros,
         phone,
         website,
-        address
+        address,
+        cpf_cnpj,
+        contactPerson
       };
     }
     // Monta os dados, incluindo marketplace apenas se existir
 
-    const resultado = await Cliente.atualizarSeller(id_seller, dados); // chama a função de atualizar
+    const resultado = await Cliente.atualizarSeller(cliente_id, dados); // chama a função de atualizar
 
     return res.status(200).json({ dados: resultado });
   } catch (error) {
@@ -402,6 +407,8 @@ const criarSeller = async (req, res) => {
       phone,
       website,
       address,
+      cpf_cnpj,
+      contactPerson
     } = req.body;
 
     if (password !== confirmpassword) {
@@ -425,7 +432,9 @@ const criarSeller = async (req, res) => {
       taxa_repasse_juros,
       phone,
       website,
-      address
+      address,
+      cpf_cnpj,
+      contactPerson
     });
 
     // 4. Geração do token JWT
@@ -509,7 +518,6 @@ const buscarDadosSellerGeral = async (req, res) => {
 
     // Busca as transações conforme o cargo do usuário
     const dados = await Payment.getByUserRoleTransacoes(data);
-    console.log(dados, "oi");
 
     // const dados = await Cliente.getClientById(id);
     if (dados?.cliente?.id) {

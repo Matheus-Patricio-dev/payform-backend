@@ -8,7 +8,7 @@ router.post('/register-payment', authVerify, createPayment);
 router.post('/payment/:id', authVerify, paymentTransactionZoop)
 router.put('/payment-update/:id', authVerify, updatePayment)
 router.get('/payment/:id', authVerify, getPayments);
-router.get('/payment-ver/:id', authVerify, getPaymentsById);
+router.get('/payment-ver/:id', getPaymentsById);
 router.get('/transactions/:id', authVerify, getPaymentsTransactions);
 router.delete('/payment-remove/:id', authVerify, deletePayment);
 

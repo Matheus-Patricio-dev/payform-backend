@@ -1,4 +1,6 @@
 // controllers/PaymentController.js
+require("dotenv").config();
+
 const {
   generateTransaction,
   associarPlanoJuros,
@@ -8,7 +10,7 @@ const Payment = require("../../models/pagamentos/index");
 
 const { db } = require("../../../config/index");
 const Cliente = require("../../models/clientes/cliente");
-
+const API_BASE_64 = process.env.API_BASE_64; // Defina no .env
 const createPayment = async (req, res) => {
   try {
     const payment = await Payment.create(req.body);
@@ -204,19 +206,19 @@ const paymentTransactionZoop = async (req, res) => {
       }
       const sellerId = seller.id_seller;
       const marketplaceId = mkt?.marketplaceId;
+      const zpkKeyMarketplace = mkt?.zpk_id_marketplace || API_BASE_64;
 
-      const dataRepasse = await fluxoRepasseJuros(
-        data,
-        payment,
-        sellerId,
-        marketplaceId
-      );
+      // so executa com crédito
+      if (data?.paymentMethod === "credit_card") {
+        await fluxoRepasseJuros(data, payment, sellerId, marketplaceId);
+      }
 
       const zoopCreateTransaction = await generateTransaction(
         marketplaceId,
         sellerId,
         payment,
-        data
+        data,
+        zpkKeyMarketplace
         // enviar dados do cartão de cŕedito
       );
 
@@ -225,8 +227,10 @@ const paymentTransactionZoop = async (req, res) => {
       if (zoopCreateTransaction?.error) {
         await validarPagamentoCartao(
           zoopCreateTransaction?.id,
+          zoopCreateTransaction?.fees,
           payment?.id,
-          "falha"
+          "falha",
+          data
         );
         return res.status(200).json({
           data: {
@@ -239,11 +243,17 @@ const paymentTransactionZoop = async (req, res) => {
       if (zoopCreateTransaction?.id) {
         const validacao = await validarPagamentoCartao(
           zoopCreateTransaction?.id,
+          zoopCreateTransaction?.fees,
           payment?.id,
-          zoopCreateTransaction?.status
+          zoopCreateTransaction?.status,
+          data
         );
         console.log(validacao);
-        res.status(200).json({ data: validacao });
+        if (data?.paymentMethod === "pix") {
+          res.status(200).json({ data: validacao, barCode: zoopCreateTransaction?.payment_method?.qr_code});
+        } else {
+          res.status(200).json({ data: validacao });
+        }
       }
     }
   } catch (error) {
@@ -254,8 +264,10 @@ const paymentTransactionZoop = async (req, res) => {
 
 const validarPagamentoCartao = async (
   id_transacao_zoop,
+  fees,
   id_pagamento,
-  status
+  status,
+  dataPayload
 ) => {
   try {
     // Consultar a referência do documento com id_pagamento
@@ -272,9 +284,11 @@ const validarPagamentoCartao = async (
     // Determinar o status da transação baseado no status do pagamento
     let statusTransacao;
     if (status === "pre_authorized") {
-      statusTransacao = "pago";
+      statusTransacao = "pendente";
     } else if (status === "succeeded") {
       statusTransacao = "pago";
+    } else if (status === "pending") {
+      statusTransacao = "pendente_pix";
     } else {
       statusTransacao = "falha";
     }
@@ -284,7 +298,12 @@ const validarPagamentoCartao = async (
     const transactionData = {
       transacao_id_zoop: id_transacao_zoop ? id_transacao_zoop : null,
       pagamento_id: id_pagamento,
-      valor: pagamentoData.amount, // Acessa o valor do pagamento
+      paymentMethod: [dataPayload?.paymentMethod],
+      valor: dataPayload.installmentValue || pagamentoData?.amount, // Acessa o valor do pagamento
+      valor_liquido:
+        dataPayload.installmentValue - (fees ? fees : 0) ||
+        pagamentoData?.amount,
+      parcela_selecionada: dataPayload?.installments || 0,
       status: statusTransacao, // Status baseado na lógica definida
       data_criacao: new Date().toISOString(), // Data atual
       seller_id: pagamentoData.seller_id, // Certifique-se de que seller_id está presente em pagamentoData
