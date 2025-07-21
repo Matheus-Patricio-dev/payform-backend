@@ -63,7 +63,12 @@ async function createZoopPaymentWithCredit(
 ) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
   const amount = convertToCents(pagamento?.amount);
+  const expiry = dados?.expiry; // Supondo que dados.expiry esteja no formato "mm/aa"
+  const [month, year] = expiry.split("/"); // Divide a string em mês e ano
 
+  // Ajuste para pegar o mês e o ano
+  const expiration_month = month; // Mês extraído
+  const expiration_year = "20" + year; // Adiciona "20" ao ano
   const data = {
     payment_type: "credit",
     capture: true,
@@ -73,8 +78,8 @@ async function createZoopPaymentWithCredit(
       card: {
         card_number: dados?.number,
         holder_name: dados?.name,
-        expiration_month: "99",
-        expiration_year: "99",
+        expiration_month: expiration_month,
+        expiration_year: expiration_year,
         security_code: "233",
       },
       type: "card",
@@ -258,7 +263,7 @@ async function associarPlanoJuros(data, marketplaceId) {
 
     return response?.data;
   } catch (error) {
-    console.log(error?.response?.data, 'two');
+    console.log(error?.response?.data, "two");
     if (error.response) {
       return {
         error: true,
