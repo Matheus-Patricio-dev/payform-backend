@@ -57,7 +57,6 @@ class Cliente {
     marketplaceId,
     status,
     id_juros,
-    habilitar_parcelas,
   }) {
     try {
       // 1. Cria o cliente com ID aleatório do Firestore
@@ -69,7 +68,6 @@ class Cliente {
         marketplaceId,
         status,
         id_juros,
-        habilitar_parcelas,
       });
       const clienteId = clienteRef.id;
 
