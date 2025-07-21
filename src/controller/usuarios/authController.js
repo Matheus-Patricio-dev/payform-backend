@@ -41,7 +41,7 @@ const authRegister = async (req, res) => {
       password: hashedPassword,
       cargo,
       marketplaceId,
-      status,
+      status: "ativo",
       id_juros: taxa_padrao,
       taxa_repasse_juros,
       phone,
@@ -286,6 +286,41 @@ const updateMarketplace = async (req, res) => {
   }
 };
 
+const createMarketplace = async (req, res) => {
+  try {
+    const { idCliente } = req.params; // pega o id da URL, ex: /clientes/:id
+    const { nome, email, password, status, marketplaceId } = req.body;
+    let hashedPassword = null;
+    if (password) {
+      const saltRounds = 10;
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+    }
+    let dados = {};
+    if (hashedPassword) {
+      dados = {
+        nome,
+        email,
+        status,
+        password: hashedPassword,
+        marketplaceId,
+      };
+    } else {
+      dados = {
+        nome,
+        email,
+        status,
+        marketplaceId,
+      };
+    }
+    // Monta os dados, incluindo marketplace apenas se existir
+
+    const resultado = await Cliente.atualizar(idCliente, dados); // chama a função de atualizar
+
+    return res.status(200).json({ dados: resultado });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
 const updateSeller = async (req, res) => {
   try {
     const { idSeller } = req.params; // pega o id da URL, ex: /clientes/:id

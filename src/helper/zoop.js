@@ -225,10 +225,8 @@ async function desacociarPlanoJuros(taxa_repasse_juros, marketplaceId) {
       },
       timeout: 10000, // 10 segundos
     });
-    console.log(response, " one");
     return response?.data;
   } catch (error) {
-    console.log(error?.response?.data, 'one');
     if (error.response) {
       return {
         error: true,
