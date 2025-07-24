@@ -176,7 +176,7 @@ async function createZoopPaymentWithPix(
   // Suponha que você tenha os dados da transação
   const newPixTransaction = {
     method: "POST",
-    url: "http://localhost:9001/api/auth/webhook/zoop",
+    url: "https://payform-backend.onrender.com/api/auth/webhook/zoop",
     description: "Transaction PIX",
     event: ["transaction.pending"],
     metadata: {
