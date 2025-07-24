@@ -15,31 +15,31 @@ const createPayment = async (req, res) => {
   try {
     const payment = await Payment.create(req.body);
 
-    if (payment) {
-      const clienteId = payment.seller_id; // O seller_id em Payment é o cliente_id em Seller
+    // if (payment) {
+    //   const clienteId = payment.seller_id; // O seller_id em Payment é o cliente_id em Seller
 
-      // 2. Busca o seller pelo cliente_id
-      const seller = await Cliente.buscarPorIdSellerPayment(clienteId);
-      const mkt = await Cliente.buscarPorIdMKTPayment(payment?.marketplaceId);
-      if (!seller) {
-        return res.status(404).json({
-          message: "Seller não encontrado para o cliente_id informado.",
-        });
-      }
-      const sellerId = seller.id_seller;
-      const marketplaceId = mkt?.marketplaceId;
+    //   // 2. Busca o seller pelo cliente_id
+    //   const seller = await Cliente.buscarPorIdSellerPayment(clienteId);
+    //   const mkt = await Cliente.buscarPorIdMKTPayment(payment?.marketplaceId);
+    //   if (!seller) {
+    //     return res.status(404).json({
+    //       message: "Seller não encontrado para o cliente_id informado.",
+    //     });
+    //   }
+    //   const sellerId = seller.id_seller;
+    //   const marketplaceId = mkt?.marketplaceId;
 
-      if (
-        Array.isArray(payment.paymentMethods) &&
-        payment.paymentMethods.includes("pix, credit_card")
-      ) {
-        const zoopCreateTransaction = await generateTransaction(
-          marketplaceId,
-          sellerId,
-          payment
-        );
-      }
-    }
+    //   if (
+    //     Array.isArray(payment.paymentMethods) &&
+    //     payment.paymentMethods.includes("pix, credit_card")
+    //   ) {
+    //     const zoopCreateTransaction = await generateTransaction(
+    //       marketplaceId,
+    //       sellerId,
+    //       payment
+    //     );
+    //   }
+    // }
     res.status(201).json({ message: "Pagamento criado !", payment });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -59,9 +59,12 @@ const getPayments = async (req, res) => {
 const getPaymentsById = async (req, res) => {
   try {
     const { id } = req.params;
+
     const payments = await Payment.getById(id);
     res.status(200).json({ payments });
   } catch (error) {
+    console.log(error);
+
     res.status(500).json({ message: error.message });
   }
 };
@@ -211,53 +214,146 @@ const paymentTransactionZoop = async (req, res) => {
       // so executa com crédito
       if (data?.paymentMethod === "credit_card") {
         await fluxoRepasseJuros(data, payment, sellerId, marketplaceId);
-      }
+        // Criar nova transação
+        const transactionRef = db.collection("transacoes").doc(); // Gera um novo ID automaticamente para a transação
+        const transactionId = transactionRef.id; // Obtém o ID do documento
 
-      const zoopCreateTransaction = await generateTransaction(
-        marketplaceId,
-        sellerId,
-        payment,
-        data,
-        zpkKeyMarketplace
-        // enviar dados do cartão de cŕedito
-      );
+        const transactionData = {
+          id: transactionId, // Adiciona o ID da transação aos dados
+          pagamento_id: payment.id,
+          paymentMethod: [data?.paymentMethod],
+          valor: data.installmentValue || payment?.amount, // Acessa o valor do pagamento
+          valor_liquido: payment?.amount,
+          parcela_selecionada: data?.installments || 0,
+          status: "pendente", // Status baseado na lógica definida
+          data_criacao: new Date().toISOString(), // Data atual
+          seller_id: payment.seller_id, // Certifique-se de que seller_id está presente em pagamentoData
+          marketplace_id: payment.marketplaceId, // Certifique-se de que marketplace_id está presente em pagamentoData
+        };
 
-      console.log(zoopCreateTransaction);
+        // Cria a transação
+        await transactionRef.set(transactionData);
 
-      if (zoopCreateTransaction?.error) {
-        await validarPagamentoCartao(
-          zoopCreateTransaction?.id,
-          zoopCreateTransaction?.fees,
-          payment?.id,
-          "falha",
-          data
+        // Lê os dados que acabamos de criar
+        const snapshot = await transactionRef.get(); // Obtém o documento recém-criado
+        const dadosCriados = snapshot.data(); // Obtém os dados do documento
+        const zoopCreateTransaction = await generateTransaction(
+          marketplaceId,
+          sellerId,
+          payment,
+          data,
+          zpkKeyMarketplace,
+          dadosCriados
+          // enviar dados do cartão de cŕedito
         );
-        return res.status(200).json({
-          data: {
-            ...zoopCreateTransaction?.error,
-            status_transacao: "falha",
-          },
-        });
-      }
 
-      if (zoopCreateTransaction?.id) {
-        const validacao = await validarPagamentoCartao(
-          zoopCreateTransaction?.id,
-          zoopCreateTransaction?.fees,
-          payment?.id,
-          zoopCreateTransaction?.status,
-          data
-        );
-        console.log(validacao);
-        if (data?.paymentMethod === "pix") {
-          res.status(200).json({ data: validacao, barCode: zoopCreateTransaction?.payment_method?.qr_code});
-        } else {
+        console.log(zoopCreateTransaction);
+
+        if (zoopCreateTransaction?.error) {
+          await validarPagamentoCartao(
+            zoopCreateTransaction?.id,
+            zoopCreateTransaction?.fees,
+            payment?.id,
+            "falha",
+            data,
+            dadosCriados
+          );
+          return res.status(200).json({
+            data: {
+              ...zoopCreateTransaction?.error,
+              status_transacao: "falha",
+            },
+          });
+        }
+
+        if (zoopCreateTransaction?.id) {
+          const validacao = await validarPagamentoCartao(
+            zoopCreateTransaction?.id,
+            zoopCreateTransaction?.fees,
+            payment?.id,
+            zoopCreateTransaction?.status,
+            data,
+            dadosCriados
+          );
+          console.log(validacao);
           res.status(200).json({ data: validacao });
+        }
+      }
+
+      if (data?.paymentMethod === "pix") {
+        // Criar nova transação
+        const transactionRef = db.collection("transacoes").doc(); // Gera um novo ID automaticamente para a transação
+        const transactionId = transactionRef.id; // Obtém o ID do documento
+
+        const transactionData = {
+          id: transactionId, // Adiciona o ID da transação aos dados
+          pagamento_id: payment.id,
+          paymentMethod: [data?.paymentMethod],
+          valor: data.installmentValue || payment?.amount, // Acessa o valor do pagamento
+          valor_liquido: payment?.amount,
+          parcela_selecionada: data?.installments || 0,
+          status: "pendente", // Status baseado na lógica definida
+          data_criacao: new Date().toISOString(), // Data atual
+          seller_id: payment.seller_id, // Certifique-se de que seller_id está presente em pagamentoData
+          marketplace_id: payment.marketplaceId, // Certifique-se de que marketplace_id está presente em pagamentoData
+        };
+
+        // Cria a transação
+        await transactionRef.set(transactionData);
+
+        // Lê os dados que acabamos de criar
+        const snapshot = await transactionRef.get(); // Obtém o documento recém-criado
+        const dadosCriados = snapshot.data(); // Obtém os dados do documento
+
+        const zoopCreateTransaction = await generateTransaction(
+          marketplaceId,
+          sellerId,
+          payment,
+          data,
+          zpkKeyMarketplace,
+          dadosCriados
+          // enviar dados do cartão de cŕedito
+        );
+
+        console.log(zoopCreateTransaction);
+
+        if (zoopCreateTransaction?.error) {
+          await validarPagamentoCartao(
+            zoopCreateTransaction?.id,
+            zoopCreateTransaction?.fees,
+            payment?.id,
+            "falha",
+            data,
+            dadosCriados
+          );
+          return res.status(200).json({
+            data: {
+              ...zoopCreateTransaction?.error,
+              status_transacao: "falha",
+            },
+          });
+        }
+
+        if (zoopCreateTransaction?.id) {
+          const validacao = await validarPagamentoCartao(
+            zoopCreateTransaction?.id,
+            zoopCreateTransaction?.fees,
+            payment?.id,
+            zoopCreateTransaction?.status,
+            data,
+            dadosCriados
+          );
+          console.log(validacao);
+          res.status(200).json({
+            data: validacao,
+            barCode: zoopCreateTransaction?.payment_method?.qr_code,
+            id_transacao: dadosCriados?.id || null,
+          });
         }
       }
     }
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -267,7 +363,8 @@ const validarPagamentoCartao = async (
   fees,
   id_pagamento,
   status,
-  dataPayload
+  dataPayload,
+  transacao
 ) => {
   try {
     // Consultar a referência do documento com id_pagamento
@@ -293,28 +390,53 @@ const validarPagamentoCartao = async (
       statusTransacao = "falha";
     }
 
-    // Criar nova transação
-    const transactionRef = db.collection("transacoes").doc(); // Gera um novo ID automaticamente para a transação
-    const transactionData = {
-      transacao_id_zoop: id_transacao_zoop ? id_transacao_zoop : null,
-      pagamento_id: id_pagamento,
-      paymentMethod: [dataPayload?.paymentMethod],
-      valor: dataPayload.installmentValue || pagamentoData?.amount, // Acessa o valor do pagamento
-      valor_liquido:
-        dataPayload.installmentValue - (fees ? fees : 0) ||
-        pagamentoData?.amount,
-      parcela_selecionada: dataPayload?.installments || 0,
-      status: statusTransacao, // Status baseado na lógica definida
-      data_criacao: new Date().toISOString(), // Data atual
-      seller_id: pagamentoData.seller_id, // Certifique-se de que seller_id está presente em pagamentoData
-      marketplace_id: pagamentoData.marketplaceId, // Certifique-se de que marketplace_id está presente em pagamentoData
-    };
+    // Buscar a referência da transação usando o ID da transação
+    const transactionRef = db.collection("transacoes").doc(transacao?.id);
 
-    await transactionRef.set(transactionData);
+    const transactionDoc = await transactionRef.get();
 
-    console.log(
-      `Transação criada com sucesso para o pagamento: ${id_pagamento} com status: ${statusTransacao}`
-    );
+    if (transactionDoc.exists) {
+      // Se a transação já existe, atualize os dados
+      const existingTransactionData = transactionDoc.data();
+
+      const updatedTransactionData = {
+        ...existingTransactionData, // Manter dados existentes
+        valor: dataPayload?.installmentValue || pagamentoData?.amount,
+        transacao_id_zoop: id_transacao_zoop ? id_transacao_zoop : null,
+        valor_liquido:
+          dataPayload.installmentValue - (fees ? fees : 0) ||
+          pagamentoData?.amount,
+        parcela_selecionada: dataPayload?.installments || 0,
+        status: statusTransacao, // Atualiza o status
+        data_atualizacao: new Date().toISOString(), // Data de atualização
+      };
+
+      await transactionRef.update(updatedTransactionData);
+      console.log(`Transação atualizada: ${transactionRef.id}`);
+    } else {
+      // Se não existe, cria uma nova transação
+      const newTransactionRef = db.collection("transacoes").doc(); // Gera um novo ID automaticamente para a nova transação
+      const transactionData = {
+        transacao_id_zoop: id_transacao_zoop ? id_transacao_zoop : null,
+        pagamento_id: id_pagamento,
+        paymentMethod: [dataPayload?.paymentMethod],
+        valor:
+          (dataPayload && dataPayload.installmentValue) ||
+          (pagamentoData ? pagamentoData.amount : 0),
+        valor_liquido:
+          (dataPayload ? dataPayload.installmentValue : 0) - (fees || 0) ||
+          (pagamentoData ? pagamentoData.amount : 0),
+        parcela_selecionada: (dataPayload && dataPayload.installments) || 0,
+
+        status: statusTransacao, // Status baseado na lógica definida
+        data_criacao: new Date().toISOString(), // Data atual
+        seller_id: pagamentoData.seller_id, // Certifique-se de que seller_id está presente em pagamentoData
+        marketplace_id: pagamentoData.marketplaceId, // Certifique-se de que marketplace_id está presente em pagamentoData
+      };
+
+      await newTransactionRef.set(transactionData);
+      console.log(`Nova transação criada: ${newTransactionRef.id}`);
+    }
 
     return {
       success: true,
@@ -340,4 +462,5 @@ module.exports = {
   getPaymentsTransactions,
   getPaymentsById,
   paymentTransactionZoop,
+  validarPagamentoCartao,
 };

@@ -5,7 +5,7 @@ const router = express.Router();
 
 // marketplace 
 router.post('/register-payment', authVerify, createPayment);
-router.post('/payment/:id', authVerify, paymentTransactionZoop)
+router.post('/payment/:id', paymentTransactionZoop)
 router.put('/payment-update/:id', authVerify, updatePayment)
 router.get('/payment/:id', authVerify, getPayments);
 router.get('/payment-ver/:id', getPaymentsById);

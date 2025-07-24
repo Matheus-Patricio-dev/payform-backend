@@ -1,6 +1,7 @@
 require("dotenv").config();
 const axios = require("axios");
 const Cliente = require("../models/clientes/cliente");
+const { sendCreatedPixWebhook } = require("./webhooks");
 
 const API_KEY = process.env.API_KEY; // Defina no .env
 const API_BASE_64 = process.env.API_BASE_64; // Defina no .env
@@ -28,9 +29,12 @@ async function generateTransaction(
   sellerId,
   pagamento,
   dados,
-  zpkKey
+  zpkKey,
+  criandoTransacao
 ) {
   try {
+    console.log(dados?.paymentMethod);
+    
     // transação com credit e pix ( separação de funções )
     if (dados?.paymentMethod === "pix") {
       const responsePix = await createZoopPaymentWithPix(
@@ -38,7 +42,8 @@ async function generateTransaction(
         sellerId,
         pagamento,
         dados,
-        zpkKey
+        zpkKey,
+        criandoTransacao
       );
 
       return responsePix;
@@ -129,7 +134,6 @@ async function createZoopPaymentWithCredit(
     },
   };
 
-
   // Monta o header Basic Auth
   const response = await axios.post(url, data, {
     headers: {
@@ -147,7 +151,8 @@ async function createZoopPaymentWithPix(
   sellerId,
   pagamento,
   dados,
-  zpkKey
+  zpkKey,
+  transacao
 ) {
   const url = `https://api.zoop.ws/v1/marketplaces/${marketplaceId}/transactions`;
   const amount = convertToCents(pagamento?.amount);
@@ -159,22 +164,6 @@ async function createZoopPaymentWithPix(
     payment_type: "pix",
   };
 
-  // Função para converter para Base64 e garantir que termine com Og==
-  const toBase64WithOg = (str) => {
-    // Adiciona um caractere que garante o resultado final desejado
-    const adjustedString = str + " "; // Adiciona um espaço para o ajuste
-    let base64 = btoa(unescape(encodeURIComponent(adjustedString)));
-
-    // Adiciona preenchimento se necessário
-    while (base64.length % 4) {
-      base64 += "=";
-    }
-
-    return base64;
-  };
-
-  const apiBase64 = toBase64WithOg(String(zpkKey));
-
   // // Monta o header Basic Auth
   const response = await axios.post(url, data, {
     headers: {
@@ -183,6 +172,28 @@ async function createZoopPaymentWithPix(
     },
     timeout: 10000, // 10 segundos
   });
+
+  // Suponha que você tenha os dados da transação
+  const newPixTransaction = {
+    method: "POST",
+    url: "http://localhost:9001/api/auth/webhook/zoop",
+    description: "Transaction PIX",
+    event: ["transaction.pending"],
+    metadata: {
+      id_transacao: transacao?.id,
+      status: transacao?.status,
+      seller_id: transacao?.seller_id,
+      pagamento_id: transacao?.pagamento_id
+    },
+  };
+
+  const assionaWebHookCreatedPix = await sendCreatedPixWebhook(
+    newPixTransaction,
+    zpkKey,
+    marketplaceId
+  );
+
+  // console.log(assionaWebHookCreatedPix, "assionaWebHookCreatedPix");
 
   return response.data;
   // return {
