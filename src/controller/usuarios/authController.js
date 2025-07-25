@@ -23,7 +23,7 @@ const authRegister = async (req, res) => {
       address,
       zpk_id_marketplace,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     } = req.body;
     // Verifica se password e confirmpassword são iguais
     if (password !== confirmpassword) {
@@ -52,7 +52,7 @@ const authRegister = async (req, res) => {
       address,
       zpk_id_marketplace,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     });
     // Gera token JWT com o id do usuário
     const token = jwt.sign(
@@ -109,6 +109,7 @@ const authLogin = async (req, res) => {
           marketplaceId: user.marketplaceId,
           dataInfo: user.dataInfo,
         },
+        settings: user.settings,
       });
     } else {
       return res.json({
@@ -125,6 +126,7 @@ const authLogin = async (req, res) => {
           marketplaceId: user.marketplaceId,
           dataInfo: user.dataInfo,
         },
+        settings: user.settings,
       });
     }
   } catch (error) {
@@ -215,9 +217,9 @@ const registerSellerToMarktplace = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       } = req.body;
-      
+
       // Verifica se password e confirmpassword são iguais
       if (password !== confirmpassword) {
         return res.status(400).json({ error: "As senhas não conferem." });
@@ -244,7 +246,7 @@ const registerSellerToMarktplace = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       });
 
       return res
@@ -273,7 +275,7 @@ const updateMarketplace = async (req, res) => {
       website,
       address,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     } = req.body;
     let hashedPassword = null;
     if (password) {
@@ -293,7 +295,7 @@ const updateMarketplace = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       };
     } else {
       dados = {
@@ -306,7 +308,7 @@ const updateMarketplace = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       };
     }
     // Monta os dados, incluindo marketplace apenas se existir
@@ -335,7 +337,7 @@ const updateSeller = async (req, res) => {
       website,
       address,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     } = req.body;
     let hashedPassword = null;
     if (password) {
@@ -356,7 +358,7 @@ const updateSeller = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       };
     } else {
       dados = {
@@ -370,7 +372,7 @@ const updateSeller = async (req, res) => {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       };
     }
     // Monta os dados, incluindo marketplace apenas se existir
@@ -408,7 +410,7 @@ const criarSeller = async (req, res) => {
       website,
       address,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     } = req.body;
 
     if (password !== confirmpassword) {
@@ -434,7 +436,7 @@ const criarSeller = async (req, res) => {
       website,
       address,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     });
 
     // 4. Geração do token JWT
@@ -466,6 +468,34 @@ const buscarPorIdSeller = async (req, res) => {
   }
 };
 
+const updateSettingsBranch = async (req, res) => {
+  try {
+    const { id } = req.params; // ID do cliente
+    const data = req.body; // { primaryColor, secondaryColor, logo }
+
+    const clienteRef = db.collection("clientes").doc(id);
+    const clienteDoc = await clienteRef.get();
+
+    if (!clienteDoc.exists) {
+      return res.status(404).json({ error: "Cliente não encontrado." });
+    }
+
+    // Atualiza o campo "settings" do cliente
+    await clienteRef.update({
+      settings: {
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
+        logo: data.logo,
+      },
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Configurações atualizadas com sucesso." });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
 const listarSellers = async (req, res) => {
   try {
     const dados = await Cliente.listarTodosSellersComCliente();
@@ -604,4 +634,5 @@ module.exports = {
   listarSellers,
   buscarPorIdSeller,
   registerSellerToMarktplace,
+  updateSettingsBranch
 };
