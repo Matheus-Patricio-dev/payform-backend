@@ -62,7 +62,7 @@ class Cliente {
     website,
     address,
     cpf_cnpj,
-    contactPerson
+    contactPerson,
   }) {
     try {
       // 1. Cria o cliente com ID aleatório do Firestore
@@ -79,7 +79,7 @@ class Cliente {
         website,
         address,
         cpf_cnpj,
-        contactPerson
+        contactPerson,
       });
       const clienteId = clienteRef.id;
 
@@ -308,11 +308,11 @@ class Cliente {
 
   static async atualizarSeller(idSeller, dados) {
     console.log(idSeller);
-    
+
     // Atualiza o cliente (exceto marketplace)
     const { marketplace, ...dadosCliente } = dados;
     const doc = await db.collection("sellers").doc(idSeller).get();
-    console.log(doc)
+    console.log(doc);
     // Busca o cliente atualizado para pegar o marketplaceId
     const { cliente_id } = doc.data();
 
@@ -373,7 +373,7 @@ class Cliente {
     website,
     address,
     cpf_cnpj,
-    contactPerson
+    contactPerson,
   }) {
     // 2. Criação do cliente (gera um novo ID)
     const clienteRef = db.collection("clientes").doc(); // Cria referência com novo ID
@@ -389,7 +389,7 @@ class Cliente {
       website,
       address,
       cpf_cnpj,
-      contactPerson
+      contactPerson,
     });
 
     // 3. Criação do seller, usando o mesmo ID do cliente

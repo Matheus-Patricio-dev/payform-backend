@@ -16,6 +16,7 @@ const {
   listarSellers,
   buscarPorIdSeller,
   updateSettingsBranch,
+  updateSettings,
 } = require("../../controller/usuarios/authController");
 const {
   authVerify,
@@ -28,7 +29,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fieldSize: 25 * 1024 * 1024, // 5MB
+    fieldSize: 50 * 1024 * 1024, // 5MB
   },
 });
 
@@ -68,5 +69,6 @@ router.get("/seller-dash/:id", authVerify, buscarDadosSellerGeral);
 router.get("/sellers", authVerify, isMarketplace, listarSellers);
 router.put("/seller/:idSeller", authVerify, updateSeller);
 router.post("/update-branch/:id", upload.none(), authVerify, updateSettingsBranch);
+router.put("/update-profile/:id", authVerify, updateSettings)
 
 module.exports = router;

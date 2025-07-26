@@ -468,6 +468,50 @@ const buscarPorIdSeller = async (req, res) => {
   }
 };
 
+const updateSettings = async (req, res) => {
+  try {
+    const { id } = req.params; // ID do cliente
+    const { email, nome, novaSenha, senhaAtual } = req.body;
+
+    const clienteRef = db.collection("clientes").doc(id);
+    const clienteDoc = await clienteRef.get();
+
+    if (!clienteDoc.exists) {
+      return res.status(404).json({ error: "Cliente não encontrado." });
+    }
+
+    const clienteData = clienteDoc.data();
+    const senhaSalva = clienteData.password; // Supondo que a senha criptografada está armazenada como 'password'
+
+    // Verifica a senha atual se novaSenha é fornecida
+    if (novaSenha && senhaAtual) {
+      const senhaValida = await bcrypt.compare(senhaAtual, senhaSalva);
+      if (!senhaValida) {
+        return res.status(401).json({ error: "Senha atual incorreta." });
+      }
+
+      // Atualiza a nova senha se for válida
+      const senhaCriptografada = await bcrypt.hash(novaSenha, 10);
+      await clienteRef.update({ password: senhaCriptografada }); // Salva a nova senha criptografada
+    }
+
+    // Prepara os dados para atualização do nome e email
+    const updates = {};
+    if (nome) updates.nome = nome; // Atualiza o nome se fornecido
+    if (email) updates.email = email; // Atualiza o e-mail se fornecido
+
+    // Atualiza os campos do cliente (nome e email)
+    if (Object.keys(updates).length > 0) {
+      await clienteRef.update(updates);
+    }
+
+    return res.status(200).json({ message: "Perfil atualizado com sucesso." });
+  } catch (error) {
+    console.error(error); // Log do erro para depuração
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 const updateSettingsBranch = async (req, res) => {
   try {
     const { id } = req.params; // ID do cliente
@@ -485,9 +529,39 @@ const updateSettingsBranch = async (req, res) => {
       settings: {
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
-        logo: data.logo,
+        // logo: data.logo,
       },
     });
+
+    // Busca o marketplace associado ao cliente
+    const marketplaceRef = db
+      .collection("marketplaces")
+      .where("cliente_id", "==", id);
+    const marketplaceSnapshot = await marketplaceRef.get();
+
+    if (!marketplaceSnapshot.empty) {
+      const marketplaceDoc = marketplaceSnapshot.docs[0]; // Assume que há apenas um marketplace por cliente
+
+      // Busca todos os sellers associados ao marketplace
+      const sellersRef = db
+        .collection("clientes")
+        .where("marketplaceId", "==", marketplaceDoc.id);
+      const sellersSnapshot = await sellersRef.get();
+
+      // Atualiza cada seller com as configurações do marketplace
+      const updatePromises = sellersSnapshot.docs.map((sellerDoc) => {
+        return sellerDoc.ref.update({
+          settings: {
+            primaryColor: data.primaryColor,
+            secondaryColor: data.secondaryColor,
+            // logo: data.logo, // Se necessário
+          },
+        });
+      });
+
+      // Aguarda a atualização de todos os sellers
+      await Promise.all(updatePromises);
+    }
 
     return res
       .status(200)
@@ -496,6 +570,7 @@ const updateSettingsBranch = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
+
 const listarSellers = async (req, res) => {
   try {
     const dados = await Cliente.listarTodosSellersComCliente();
@@ -634,5 +709,6 @@ module.exports = {
   listarSellers,
   buscarPorIdSeller,
   registerSellerToMarktplace,
-  updateSettingsBranch
+  updateSettingsBranch,
+  updateSettings,
 };
